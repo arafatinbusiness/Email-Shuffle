@@ -6,7 +6,6 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   Mail,
   MailOpen,
@@ -14,17 +13,14 @@ import {
   RefreshCw,
   Reply,
   Settings,
-  ChevronLeft,
-  ChevronRight,
   User,
   Clock,
   Inbox,
   MessageSquare,
-  ExternalLink,
-  Copy,
-  Check,
   Plus,
   X,
+  ChevronDown,
+  ChevronRight,
 } from 'lucide-react'
 import { format } from 'date-fns'
 import { toast } from 'sonner'
@@ -54,6 +50,9 @@ interface MessageData {
   body_html: string | null
   sender: string
   recipient: string
+  message_id: string
+  in_reply_to: string | null
+  refs: string | null
   is_read: boolean
   sent_at: string
 }
@@ -67,16 +66,70 @@ interface MailboxInboxProps {
   onOpenSettings?: () => void
 }
 
+// Helper to get initials from name
+const getInitials = (name: string): string => {
+  if (!name) return '?'
+  const parts = name.split(/[\s<@]+/).filter(Boolean)
+  if (parts.length >= 2) {
+    return (parts[0][0] + parts[1][0]).toUpperCase()
+  }
+  return name.substring(0, 2).toUpperCase()
+}
+
+// Helper to extract email from "Name <email>" format
+const extractEmail = (raw: string): string => {
+  if (!raw) return ''
+  const match = raw.match(/<([^>]+)>/)
+  if (match) return match[1].trim()
+  if (raw.includes('@')) return raw.trim()
+  return raw.trim()
+}
+
+// Helper to extract display name from "Name <email>" format
+const extractName = (raw: string): string => {
+  if (!raw) return 'Unknown'
+  const match = raw.match(/^([^<]+)</)
+  if (match) return match[1].trim()
+  if (raw.includes('@')) return raw.split('@')[0]
+  return raw
+}
+
+// Helper to get a color based on a string (for avatar backgrounds)
+const getAvatarColor = (str: string): string => {
+  const colors = [
+    'bg-red-500', 'bg-blue-500', 'bg-green-500', 'bg-yellow-500',
+    'bg-purple-500', 'bg-pink-500', 'bg-indigo-500', 'bg-teal-500',
+    'bg-orange-500', 'bg-cyan-500',
+  ]
+  let hash = 0
+  for (let i = 0; i < str.length; i++) {
+    hash = str.charCodeAt(i) + ((hash << 5) - hash)
+  }
+  return colors[Math.abs(hash) % colors.length]
+}
+
+// Format relative time
+const formatRelativeTime = (dateStr: string): string => {
+  const date = new Date(dateStr)
+  const now = new Date()
+  const diffMs = now.getTime() - date.getTime()
+  const diffMins = Math.floor(diffMs / 60000)
+  const diffHours = Math.floor(diffMs / 3600000)
+  const diffDays = Math.floor(diffMs / 86400000)
+
+  if (diffMins < 1) return 'Just now'
+  if (diffMins < 60) return `${diffMins}m`
+  if (diffHours < 24) return `${diffHours}h`
+  if (diffDays < 7) return `${diffDays}d`
+  return format(date, 'MMM d')
+}
+
 export function MailboxInbox({ onOpenSettings }: MailboxInboxProps) {
   const [threads, setThreads] = useState<ThreadData[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedThread, setSelectedThread] = useState<ThreadDetail | null>(null)
-  const [activeTab, setActiveTab] = useState('inbox')
   const [replyText, setReplyText] = useState('')
   const [sending, setSending] = useState(false)
-  const [copiedField, setCopiedField] = useState<string | null>(null)
-  const [manualRecipient, setManualRecipient] = useState('')
-  const [showManualRecipient, setShowManualRecipient] = useState(false)
   const [showCompose, setShowCompose] = useState(false)
   const [composeTo, setComposeTo] = useState('')
   const [composeSubject, setComposeSubject] = useState('')
@@ -88,12 +141,12 @@ export function MailboxInbox({ onOpenSettings }: MailboxInboxProps) {
   const [composeSuggestions, setComposeSuggestions] = useState<{ name: string; email: string }[]>([])
   const [composeShowSuggestions, setComposeShowSuggestions] = useState(false)
   const [composeToFocused, setComposeToFocused] = useState(false)
+  const [expandedReplies, setExpandedReplies] = useState<Set<number>>(new Set())
 
-  const fetchThreads = useCallback(async (unreadOnly = false) => {
+  const fetchThreads = useCallback(async () => {
     setLoading(true)
     try {
-      const url = unreadOnly ? '/api/mailbox/threads?unread=true' : '/api/mailbox/threads'
-      const res = await fetch(url)
+      const res = await fetch('/api/mailbox/threads')
       if (res.ok) {
         const data = await res.json()
         setThreads(data)
@@ -129,73 +182,15 @@ export function MailboxInbox({ onOpenSettings }: MailboxInboxProps) {
     }
   }
 
-  // Helper to extract email address from "Name <email>" format
-  const extractEmail = (raw: string): string => {
-    if (!raw) return ''
-    // Try to extract from "Name" <email> format
-    const match = raw.match(/<([^>]+)>/)
-    if (match) return match[1].trim()
-    // If it's already just an email, return as-is
-    if (raw.includes('@')) return raw.trim()
-    // Fallback: return raw trimmed
-    return raw.trim()
-  }
-
-  // Determine the best recipient email for the current thread
-  const getRecipientEmail = useCallback((): string => {
-    if (!selectedThread) return ''
-
-    // Priority 1: lead_email from the thread (from leads table)
-    if (selectedThread.thread.lead_email) {
-      const extracted = extractEmail(selectedThread.thread.lead_email)
-      if (extracted.includes('@')) return extracted
-    }
-
-    // Priority 2: For incoming messages, extract email from sender field
-    const lastMessage = selectedThread.messages[selectedThread.messages.length - 1]
-    if (lastMessage.direction === 'incoming') {
-      const extracted = extractEmail(lastMessage.sender)
-      if (extracted.includes('@')) return extracted
-    }
-
-    // Priority 3: Look for any outgoing message's recipient in the thread (that's the lead's email)
-    const outgoingMsg = [...selectedThread.messages].reverse().find(m => m.direction === 'outgoing')
-    if (outgoingMsg) {
-      const extracted = extractEmail(outgoingMsg.recipient)
-      if (extracted.includes('@')) return extracted
-    }
-
-    // Priority 4: Last resort - try the last message's sender/recipient
-    const raw = lastMessage.direction === 'incoming' ? lastMessage.sender : lastMessage.recipient
-    const extracted = extractEmail(raw)
-    if (extracted.includes('@')) return extracted
-
-    return ''
-  }, [selectedThread])
-
-  // Show manual recipient input when email can't be determined
-  useEffect(() => {
-    if (selectedThread) {
-      const email = getRecipientEmail()
-      setShowManualRecipient(!email)
-      if (email) setManualRecipient(email)
-    } else {
-      setShowManualRecipient(false)
-      setManualRecipient('')
-    }
-  }, [selectedThread, getRecipientEmail])
-
   const handleSendReply = async () => {
     if (!selectedThread || !replyText.trim()) return
 
-    // Use manual recipient if provided, otherwise auto-detect
-    let recipient = manualRecipient
-    if (!recipient || !recipient.includes('@')) {
-      recipient = getRecipientEmail()
-    }
+    // Find the last incoming message to reply to
+    const lastIncoming = [...selectedThread.messages].reverse().find(m => m.direction === 'incoming')
+    const recipient = lastIncoming ? extractEmail(lastIncoming.sender) : ''
 
     if (!recipient || !recipient.includes('@')) {
-      toast.error('Please enter a valid recipient email address')
+      toast.error('Could not determine recipient email')
       return
     }
 
@@ -206,12 +201,14 @@ export function MailboxInbox({ onOpenSettings }: MailboxInboxProps) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           to: recipient,
-          subject: selectedThread.thread.subject.startsWith('Re:') 
-            ? selectedThread.thread.subject 
+          subject: selectedThread.thread.subject.startsWith('Re:')
+            ? selectedThread.thread.subject
             : `Re: ${selectedThread.thread.subject}`,
           body: replyText,
           thread_id: selectedThread.thread.id,
           lead_id: selectedThread.thread.lead_id,
+          in_reply_to: lastIncoming?.message_id || undefined,
+          references: lastIncoming?.refs || lastIncoming?.message_id || undefined,
         }),
       })
 
@@ -219,7 +216,6 @@ export function MailboxInbox({ onOpenSettings }: MailboxInboxProps) {
 
       toast.success('Reply sent!')
       setReplyText('')
-      // Refresh thread
       await fetchThreadDetail(selectedThread.thread.id)
     } catch {
       toast.error('Failed to send reply')
@@ -263,21 +259,120 @@ export function MailboxInbox({ onOpenSettings }: MailboxInboxProps) {
     }
   }
 
-  const handleCopy = async (text: string, field: string) => {
-    await navigator.clipboard.writeText(text)
-    setCopiedField(field)
-    setTimeout(() => setCopiedField(null), 2000)
+  // Build a tree of messages based on in_reply_to
+  const buildMessageTree = (messages: MessageData[]): { root: MessageData[]; replies: Map<string, MessageData[]> } => {
+    const replies = new Map<string, MessageData[]>()
+    const root: MessageData[] = []
+
+    for (const msg of messages) {
+      if (msg.in_reply_to) {
+        const existing = replies.get(msg.in_reply_to) || []
+        existing.push(msg)
+        replies.set(msg.in_reply_to, existing)
+      } else {
+        root.push(msg)
+      }
+    }
+
+    return { root, replies }
+  }
+
+  // Render a message and its replies recursively (Facebook comment style)
+  const renderMessage = (msg: MessageData, replies: Map<string, MessageData[]>, depth: number = 0) => {
+    const childMessages = replies.get(msg.message_id) || []
+    const hasReplies = childMessages.length > 0
+    const isExpanded = expandedReplies.has(msg.id)
+    const isIncoming = msg.direction === 'incoming'
+    const displayName = isIncoming ? extractName(msg.sender) : 'You'
+    const email = isIncoming ? extractEmail(msg.sender) : extractEmail(msg.recipient)
+
+    return (
+      <div key={msg.id} className={`${depth > 0 ? 'ml-8 border-l-2 border-muted pl-4' : ''}`}>
+        {/* Facebook comment-style message card */}
+        <div className={`flex gap-3 group ${depth > 0 ? 'mt-2' : 'mt-3'}`}>
+          {/* Avatar */}
+          <div className="flex-shrink-0">
+            <div className={`h-8 w-8 rounded-full ${getAvatarColor(email)} flex items-center justify-center text-white text-xs font-bold`}>
+              {getInitials(displayName)}
+            </div>
+          </div>
+
+          {/* Message content */}
+          <div className="flex-1 min-w-0">
+            <div className={`rounded-lg px-3 py-2 ${
+              isIncoming
+                ? 'bg-muted/50 border border-border'
+                : 'bg-primary/10 border border-primary/20'
+            }`}>
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-xs font-semibold">{displayName}</span>
+                <span className="text-[10px] text-muted-foreground">
+                  {format(new Date(msg.sent_at), 'MMM d, h:mm a')}
+                </span>
+                {!isIncoming && (
+                  <Badge variant="outline" className="text-[9px] px-1 py-0 h-4">Sent</Badge>
+                )}
+              </div>
+              <p className="text-sm whitespace-pre-wrap break-words">
+                {msg.body || (msg.body_html ? msg.body_html.replace(/<[^>]*>/g, '').trim() : '(No content)')}
+              </p>
+            </div>
+
+            {/* Reply / Expand toggle */}
+            <div className="flex items-center gap-3 mt-1 px-1">
+              <button
+                className="text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
+                onClick={() => {
+                  setReplyText(`> ${msg.body.split('\n')[0]}\n\n`)
+                }}
+              >
+                <Reply className="h-3 w-3" />
+                Reply
+              </button>
+              {hasReplies && (
+                <button
+                  className="text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
+                  onClick={() => {
+                    setExpandedReplies(prev => {
+                      const next = new Set(prev)
+                      if (next.has(msg.id)) next.delete(msg.id)
+                      else next.add(msg.id)
+                      return next
+                    })
+                  }}
+                >
+                  {isExpanded ? (
+                    <ChevronDown className="h-3 w-3" />
+                  ) : (
+                    <ChevronRight className="h-3 w-3" />
+                  )}
+                  {childMessages.length} {childMessages.length === 1 ? 'reply' : 'replies'}
+                </button>
+              )}
+            </div>
+
+            {/* Nested replies */}
+            {hasReplies && isExpanded && (
+              <div className="mt-1">
+                {childMessages.map(child => renderMessage(child, replies, depth + 1))}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    )
   }
 
   const unreadCount = threads.reduce((sum, t) => sum + t.unread_count, 0)
 
   return (
     <div className="space-y-4">
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-lg font-semibold">Mailbox</h2>
+          <h2 className="text-lg font-semibold">Messages</h2>
           <p className="text-sm text-muted-foreground">
-            Conversations with your leads and customers
+            {threads.length} conversation{threads.length !== 1 ? 's' : ''}
           </p>
         </div>
         <div className="flex gap-2">
@@ -290,7 +385,6 @@ export function MailboxInbox({ onOpenSettings }: MailboxInboxProps) {
             Sync
           </Button>
           <Button variant="default" size="sm" onClick={async () => {
-            // Fetch account info to get alias options
             try {
               const res = await fetch('/api/mailbox/account')
               if (res.ok) {
@@ -301,10 +395,7 @@ export function MailboxInbox({ onOpenSettings }: MailboxInboxProps) {
                   setComposeFrom(data.send_as || data.email)
                 }
               }
-            } catch {
-              // Silently fail
-            }
-            // Fetch contacts for autocomplete
+            } catch {}
             try {
               const res = await fetch('/api/leads?limit=500')
               if (res.ok) {
@@ -320,9 +411,7 @@ export function MailboxInbox({ onOpenSettings }: MailboxInboxProps) {
                 }
                 setComposeSuggestions(contacts)
               }
-            } catch {
-              // Silently fail
-            }
+            } catch {}
             setShowCompose(true)
           }}>
             <Plus className="h-4 w-4 mr-2" />
@@ -335,202 +424,152 @@ export function MailboxInbox({ onOpenSettings }: MailboxInboxProps) {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {/* Thread List */}
-        <div className="lg:col-span-1 space-y-2">
-          <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="w-full">
-              <TabsTrigger value="inbox" className="flex-1 gap-1">
-                <Inbox className="h-4 w-4" />
-                Inbox
-                {unreadCount > 0 && (
-                  <Badge variant="secondary" className="ml-1 text-xs px-1.5">
-                    {unreadCount}
-                  </Badge>
-                )}
-              </TabsTrigger>
-              <TabsTrigger value="all" className="flex-1 gap-1">
-                <MessageSquare className="h-4 w-4" />
-                All
-              </TabsTrigger>
-            </TabsList>
-          </Tabs>
+      {/* Main layout: WhatsApp-style left panel + Facebook comment-style right panel */}
+      <div className="flex h-[calc(100vh-220px)] min-h-[500px] border rounded-lg overflow-hidden bg-background">
+        {/* Left Panel - WhatsApp/Signal style contact list */}
+        <div className="w-[340px] border-r flex flex-col bg-muted/10">
+          {/* Search / Filter bar */}
+          <div className="p-3 border-b bg-background">
+            <div className="flex items-center gap-2">
+              <Inbox className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm font-medium">
+                {unreadCount > 0 ? `${unreadCount} unread` : 'All conversations'}
+              </span>
+            </div>
+          </div>
 
-          <div className="space-y-1 max-h-[600px] overflow-y-auto pr-1">
+          {/* Contact list */}
+          <div className="flex-1 overflow-y-auto">
             {loading ? (
               <div className="text-center py-8 text-sm text-muted-foreground">
-                Loading conversations...
+                Loading...
               </div>
             ) : threads.length === 0 ? (
-              <div className="text-center py-8 text-sm text-muted-foreground">
+              <div className="text-center py-8 text-sm text-muted-foreground px-4">
                 No conversations yet. Sync your inbox or send an email to get started.
               </div>
             ) : (
-              threads
-                .filter(t => activeTab === 'inbox' ? t.unread_count > 0 : true)
-                .map((thread) => (
+              threads.map((thread) => {
+                const displayName = thread.lead_first_name
+                  ? `${thread.lead_first_name} ${thread.lead_last_name || ''}`
+                  : extractName(thread.last_sender || thread.lead_email || '')
+                const email = thread.lead_email || extractEmail(thread.last_sender || '')
+                const isSelected = selectedThread?.thread.id === thread.id
+
+                return (
                   <button
                     key={thread.id}
-                    className={`w-full text-left p-3 rounded-lg border transition-colors hover:bg-muted/50 ${
-                      selectedThread?.thread.id === thread.id 
-                        ? 'border-primary bg-muted/30' 
-                        : 'border-border'
-                    } ${thread.unread_count > 0 ? 'border-l-2 border-l-primary' : ''}`}
+                    className={`w-full text-left p-3 flex gap-3 transition-colors hover:bg-muted/50 border-b border-border/50 ${
+                      isSelected ? 'bg-muted/30' : ''
+                    } ${thread.unread_count > 0 ? 'bg-primary/5' : ''}`}
                     onClick={() => fetchThreadDetail(thread.id)}
                   >
-                    <div className="flex items-start gap-2">
-                      <div className={`mt-0.5 ${thread.unread_count > 0 ? 'text-primary' : 'text-muted-foreground'}`}>
-                        {thread.unread_count > 0 ? (
-                          <Mail className="h-4 w-4" />
-                        ) : (
-                          <MailOpen className="h-4 w-4" />
-                        )}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className={`text-sm truncate ${thread.unread_count > 0 ? 'font-semibold' : ''}`}>
-                          {thread.lead_first_name 
-                            ? `${thread.lead_first_name} ${thread.lead_last_name || ''}`
-                            : thread.last_sender || thread.lead_email || 'Unknown'}
-                        </p>
-                        <p className="text-xs text-muted-foreground truncate">
-                          {thread.last_subject || thread.subject}
-                        </p>
-                        {thread.last_preview && (
-                          <p className="text-xs text-muted-foreground truncate mt-0.5">
-                            {thread.last_preview}
-                          </p>
-                        )}
-                        <p className="text-xs text-muted-foreground mt-1">
-                          <Clock className="h-3 w-3 inline mr-1" />
-                          {format(new Date(thread.last_message_at), 'MMM d, h:mm a')}
-                        </p>
+                    {/* Avatar */}
+                    <div className="flex-shrink-0 relative">
+                      <div className={`h-12 w-12 rounded-full ${getAvatarColor(email)} flex items-center justify-center text-white text-sm font-bold`}>
+                        {getInitials(displayName)}
                       </div>
                       {thread.unread_count > 0 && (
-                        <Badge variant="secondary" className="text-xs px-1.5">
-                          {thread.unread_count}
-                        </Badge>
+                        <div className="absolute -top-0.5 -right-0.5 h-4 w-4 rounded-full bg-primary flex items-center justify-center">
+                          <span className="text-[9px] text-primary-foreground font-bold">{thread.unread_count}</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Content */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between">
+                        <span className={`text-sm truncate ${thread.unread_count > 0 ? 'font-semibold' : ''}`}>
+                          {displayName}
+                        </span>
+                        <span className="text-[10px] text-muted-foreground whitespace-nowrap ml-2">
+                          {formatRelativeTime(thread.last_message_at)}
+                        </span>
+                      </div>
+                      <p className={`text-xs truncate mt-0.5 ${thread.unread_count > 0 ? 'font-medium text-foreground' : 'text-muted-foreground'}`}>
+                        {thread.last_subject || thread.subject}
+                      </p>
+                      {thread.last_preview && (
+                        <p className="text-xs text-muted-foreground truncate mt-0.5">
+                          {thread.last_preview}
+                        </p>
                       )}
                     </div>
                   </button>
-                ))
+                )
+              })
             )}
           </div>
         </div>
 
-        {/* Thread Detail */}
-        <div className="lg:col-span-2">
+        {/* Right Panel - Facebook comment-style thread view */}
+        <div className="flex-1 flex flex-col bg-background">
           {selectedThread ? (
-            <div className="space-y-4">
-              {/* Thread Header */}
-              <Card>
-                <CardHeader className="pb-2">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <CardTitle className="text-base">
-                        {selectedThread.thread.subject}
-                      </CardTitle>
-                      <p className="text-sm text-muted-foreground mt-1">
-                        {selectedThread.thread.lead_first_name 
-                          ? `${selectedThread.thread.lead_first_name} ${selectedThread.thread.lead_last_name || ''}`
-                          : selectedThread.thread.last_sender || 'Unknown'} 
-                        {selectedThread.thread.lead_email && (
-                          <span className="ml-2">({selectedThread.thread.lead_email})</span>
-                        )}
-                      </p>
-                    </div>
-                    <Badge variant="outline">
-                      {selectedThread.messages.length} message{selectedThread.messages.length !== 1 ? 's' : ''}
-                    </Badge>
-                  </div>
-                </CardHeader>
-              </Card>
-
-              {/* Messages */}
-              <div className="space-y-3 max-h-[400px] overflow-y-auto">
-                {selectedThread.messages.map((msg) => (
-                  <Card key={msg.id} className={`${msg.direction === 'incoming' ? 'border-l-2 border-l-primary' : 'border-l-2 border-l-muted-foreground'}`}>
-                    <CardContent className="p-3">
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center gap-2">
-                          <Badge variant={msg.direction === 'incoming' ? 'default' : 'secondary'} className="text-xs">
-                            {msg.direction === 'incoming' ? 'Received' : 'Sent'}
-                          </Badge>
-                          <span className="text-xs text-muted-foreground">
-                            {msg.sender}
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs text-muted-foreground">
-                            {format(new Date(msg.sent_at), 'MMM d, yyyy h:mm a')}
-                          </span>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleCopy(msg.body, `body-${msg.id}`)}
-                          >
-                            {copiedField === `body-${msg.id}` ? (
-                              <Check className="h-3 w-3 text-green-500" />
-                            ) : (
-                              <Copy className="h-3 w-3" />
-                            )}
-                          </Button>
-                        </div>
-                      </div>
-                      <p className="text-sm whitespace-pre-wrap">
-                        {msg.body || (msg.body_html ? msg.body_html.replace(/<[^>]*>/g, '').trim() : '(No content)')}
-                      </p>
-                    </CardContent>
-                  </Card>
-                ))}
+            <>
+              {/* Thread header */}
+              <div className="p-3 border-b bg-muted/5 flex items-center gap-3">
+                <div className={`h-10 w-10 rounded-full ${getAvatarColor(
+                  selectedThread.thread.lead_email || extractEmail(selectedThread.thread.last_sender || '')
+                )} flex items-center justify-center text-white text-sm font-bold`}>
+                  {getInitials(
+                    selectedThread.thread.lead_first_name
+                      ? `${selectedThread.thread.lead_first_name} ${selectedThread.thread.lead_last_name || ''}`
+                      : extractName(selectedThread.thread.last_sender || '')
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold truncate">
+                    {selectedThread.thread.lead_first_name
+                      ? `${selectedThread.thread.lead_first_name} ${selectedThread.thread.lead_last_name || ''}`
+                      : extractName(selectedThread.thread.last_sender || '')}
+                  </p>
+                  <p className="text-xs text-muted-foreground truncate">
+                    {selectedThread.thread.subject}
+                  </p>
+                </div>
+                <Badge variant="outline" className="text-xs">
+                  {selectedThread.messages.length} message{selectedThread.messages.length !== 1 ? 's' : ''}
+                </Badge>
               </div>
 
-              {/* Reply Box */}
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm flex items-center gap-2">
-                    <Reply className="h-4 w-4" />
-                    Reply
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  {showManualRecipient && (
-                    <div className="space-y-1">
-                      <label className="text-xs text-muted-foreground font-medium">
-                        To (email address)
-                      </label>
-                      <Input
-                        value={manualRecipient}
-                        onChange={(e) => setManualRecipient(e.target.value)}
-                        placeholder="Enter recipient email address..."
-                        type="email"
-                      />
-                    </div>
-                  )}
+              {/* Messages - Facebook comment style */}
+              <div className="flex-1 overflow-y-auto p-4 space-y-1">
+                {(() => {
+                  const { root, replies } = buildMessageTree(selectedThread.messages)
+                  return root.map(msg => renderMessage(msg, replies, 0))
+                })()}
+              </div>
+
+              {/* Reply input */}
+              <div className="p-3 border-t bg-muted/5">
+                <div className="flex gap-2">
                   <Textarea
                     value={replyText}
                     onChange={(e) => setReplyText(e.target.value)}
-                    placeholder="Write your reply..."
-                    rows={5}
+                    placeholder="Write a reply..."
+                    rows={2}
+                    className="min-h-[40px] resize-none text-sm"
                   />
-                  <Button 
-                    onClick={handleSendReply} 
+                  <Button
+                    onClick={handleSendReply}
                     disabled={sending || !replyText.trim()}
+                    size="sm"
+                    className="self-end"
                   >
-                    <Send className="h-4 w-4 mr-2" />
-                    {sending ? 'Sending...' : 'Send Reply'}
+                    <Send className="h-4 w-4" />
                   </Button>
-                </CardContent>
-              </Card>
-            </div>
-          ) : (
-            <div className="h-full flex items-center justify-center">
-              <div className="text-center space-y-3 py-16">
-                <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center mx-auto">
-                  <MessageSquare className="h-6 w-6 text-primary" />
                 </div>
-                <h3 className="text-lg font-medium">Select a Conversation</h3>
+              </div>
+            </>
+          ) : (
+            <div className="flex-1 flex items-center justify-center">
+              <div className="text-center space-y-3 py-16">
+                <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto">
+                  <MessageSquare className="h-8 w-8 text-primary" />
+                </div>
+                <h3 className="text-lg font-medium">Select a conversation</h3>
                 <p className="text-sm text-muted-foreground max-w-sm">
-                  Choose a conversation from the list to view messages and reply.
+                  Choose a person from the list to view their messages and reply.
                 </p>
               </div>
             </div>
@@ -657,7 +696,7 @@ export function MailboxInbox({ onOpenSettings }: MailboxInboxProps) {
                 }}>
                   Cancel
                 </Button>
-                <Button 
+                <Button
                   onClick={async () => {
                     if (!composeTo || !composeSubject || !composeBody) {
                       toast.error('Please fill in all fields')
