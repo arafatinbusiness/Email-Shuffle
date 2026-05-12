@@ -4,7 +4,7 @@ import { getMailboxConfig, syncInbox, findOrCreateThread, saveEmailToDb, updateL
 import { getDb } from '@/lib/db'
 
 // POST /api/mailbox/sync - Trigger IMAP inbox sync
-export async function POST() {
+export async function POST(request: Request) {
   const session = await auth()
   if (!session?.user?.id) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -14,6 +14,20 @@ export async function POST() {
     const userId = parseInt(session.user.id)
     const sql = getDb()
 
+    // Check if we should clear existing data first
+    const body = await request.json().catch(() => ({}))
+    const clearFirst = body.clearFirst === true
+
+    if (clearFirst) {
+      // Delete all existing messages and threads for this user
+      await sql`
+        DELETE FROM email_messages WHERE user_id = ${userId}
+      `
+      await sql`
+        DELETE FROM email_threads WHERE user_id = ${userId}
+      `
+    }
+
     // Get mailbox config
     const config = await getMailboxConfig(userId)
     if (!config) {
@@ -21,17 +35,15 @@ export async function POST() {
     }
 
     // Get last synced UID
-    const account = await sql`
-      SELECT last_sync_at FROM mailbox_accounts WHERE user_id = ${userId}
-    `
-    
-    // Get the highest UID we've seen for this user
-    const lastUidResult = await sql`
-      SELECT MAX(CAST(SUBSTRING(message_id FROM 'uid-([0-9]+)') AS INTEGER)) as last_uid
-      FROM email_messages
-      WHERE user_id = ${userId} AND direction = 'incoming'
-    `
-    const lastUid = lastUidResult[0]?.last_uid || 0
+    let lastUid = 0
+    if (!clearFirst) {
+      const lastUidResult = await sql`
+        SELECT MAX(CAST(SUBSTRING(message_id FROM 'uid-([0-9]+)') AS INTEGER)) as last_uid
+        FROM email_messages
+        WHERE user_id = ${userId} AND direction = 'incoming'
+      `
+      lastUid = lastUidResult[0]?.last_uid || 0
+    }
 
     // Sync inbox
     const { emails, lastUid: newLastUid } = await syncInbox(config, lastUid)

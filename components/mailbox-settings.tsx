@@ -138,6 +138,23 @@ export function MailboxSettings({ onBack }: MailboxSettingsProps) {
     }
   }
 
+  const handleClearAndResync = async () => {
+    if (!confirm('Clear all synced emails and re-sync from scratch?')) return
+    try {
+      const res = await fetch('/api/mailbox/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clearFirst: true }),
+      })
+      if (!res.ok) throw new Error('Re-sync failed')
+      const data = await res.json()
+      toast.success(`Re-synced ${data.synced} emails (${data.replies} replies)`)
+      await fetchAccount()
+    } catch {
+      toast.error('Failed to re-sync inbox')
+    }
+  }
+
   if (loading) {
     return (
       <Card>
@@ -292,6 +309,10 @@ export function MailboxSettings({ onBack }: MailboxSettingsProps) {
                 <Button variant="destructive" onClick={handleDelete}>
                   <Trash2 className="h-4 w-4 mr-2" />
                   Remove
+                </Button>
+                <Button variant="outline" onClick={handleClearAndResync}>
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Clear & Re-sync
                 </Button>
               </>
             )}
