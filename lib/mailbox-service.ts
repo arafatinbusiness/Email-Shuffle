@@ -56,11 +56,24 @@ export async function sendEmail(
   // The SMTP auth still uses the main account credentials
   const fromName = fromAddress.split('@')[0]
 
+  // Strip HTML tags for plain text version
+  const plainText = body
+    .replace(/<[^>]*>/g, '')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&/g, '&')
+    .replace(/</g, '<')
+    .replace(/>/g, '>')
+    .replace(/"/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
+
   const info = await transporter.sendMail({
     from: `"${fromName}" <${fromAddress}>`,
     to,
     subject,
-    text: body,
+    text: plainText,
+    html: body,
     headers,
   })
 
