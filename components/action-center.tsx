@@ -1,12 +1,19 @@
 'use client'
 
-import { Lead } from '@/lib/types'
-import { LeadAction, sortLeadsByPriority, ActionPriority, TYPICAL_LAYER_INTERVALS, NEXT_LAYER } from '@/lib/workflow-rules'
+import { Lead, LeadPriority, LeadIntent, PRIORITY_CONFIG, INTENT_LABELS, LAYER_DESCRIPTIONS } from '@/lib/types'
+import { LeadAction, sortLeadsByPriority, SUGGESTED_WAIT_DAYS, NEXT_LAYER } from '@/lib/workflow-rules'
 import { generateEmailTemplate } from '@/lib/email-templates'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { 
   AlertCircle, 
   Clock, 
@@ -16,7 +23,13 @@ import {
   Mail,
   Building2,
   AlertTriangle,
-  CheckCircle2
+  CheckCircle2,
+  Flag,
+  Target,
+  MessageSquare,
+  ArrowUp,
+  ArrowDown,
+  Eye
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useState } from 'react'
@@ -180,12 +193,12 @@ function ActionCard({ action, onSelect, onUpdate }: {
   onSelect: (lead: Lead) => void
   onUpdate: (lead: Lead) => void
 }) {
-  const { lead, priority, reason, suggestedLayer, daysSinceLastActivity } = action
+  const { lead, priority, reason, contextNote, suggestedLayer, daysSinceLastActivity } = action
   const [showEmail, setShowEmail] = useState(false)
   
   const email = generateEmailTemplate(lead, suggestedLayer)
   const nextLayer = NEXT_LAYER[lead.current_layer]
-  const typicalInterval = TYPICAL_LAYER_INTERVALS[lead.current_layer]
+  const typicalInterval = SUGGESTED_WAIT_DAYS[lead.current_layer]
 
   const copyEmail = () => {
     const fullEmail = `Subject: ${email.subject}\n\n${email.body}`
@@ -198,7 +211,7 @@ function ActionCard({ action, onSelect, onUpdate }: {
     toast.success('Email body copied')
   }
 
-  const priorityConfig: Record<ActionPriority, { color: string; icon: React.ElementType; bg: string }> = {
+  const priorityConfig: Record<string, { color: string; icon: React.ElementType; bg: string }> = {
     'overdue': { color: 'text-red-500', icon: AlertCircle, bg: 'bg-red-500/10' },
     'today': { color: 'text-amber-500', icon: Clock, bg: 'bg-amber-500/10' },
     'tomorrow': { color: 'text-blue-500', icon: Calendar, bg: 'bg-blue-500/10' },
@@ -209,15 +222,21 @@ function ActionCard({ action, onSelect, onUpdate }: {
   const config = priorityConfig[priority]
   const Icon = config.icon
 
+  // Determine border color based on priority
+  const borderColor = priority === 'overdue' ? 'border-l-red-500' 
+    : priority === 'today' ? 'border-l-amber-500' 
+    : 'border-l-blue-500'
+
   return (
-    <Card className={`${config.bg} border-l-4 ${priority === 'overdue' ? 'border-l-red-500' : priority === 'today' ? 'border-l-amber-500' : 'border-l-blue-500'}`}>
+    <Card className={`${config.bg} border-l-4 ${borderColor}`}>
       <CardContent className="py-4">
         <div className="flex items-start justify-between gap-4">
           <div className="flex items-start gap-3 flex-1 min-w-0">
-            <div className={`p-2 rounded-full ${config.bg}`}>
+            <div className={`p-2 rounded-full ${config.bg} shrink-0`}>
               <Icon className={`h-4 w-4 ${config.color}`} />
             </div>
             <div className="flex-1 min-w-0">
+              {/* Name + Layer + Priority + Intent badges */}
               <div className="flex items-center gap-2 flex-wrap">
                 <h3 className="font-medium truncate">
                   {lead.first_name} {lead.last_name}
@@ -225,27 +244,67 @@ function ActionCard({ action, onSelect, onUpdate }: {
                 <Badge variant="outline" className="text-xs">
                   {suggestedLayer}
                 </Badge>
+                {/* Manual Priority Badge */}
+                {lead.priority && (
+                  <Badge 
+                    variant="outline" 
+                    className={`text-xs ${
+                      lead.priority === 'high' ? 'text-red-500 border-red-500/50 bg-red-500/10' :
+                      lead.priority === 'medium' ? 'text-amber-500 border-amber-500/50 bg-amber-500/10' :
+                      'text-slate-500 border-slate-500/50 bg-slate-500/10'
+                    }`}
+                  >
+                    <Flag className="h-3 w-3 mr-1" />
+                    {PRIORITY_CONFIG[lead.priority].label}
+                  </Badge>
+                )}
+                {/* Intent Label */}
+                {lead.intent && (
+                  <Badge 
+                    variant="secondary" 
+                    className="text-xs"
+                  >
+                    <Target className="h-3 w-3 mr-1" />
+                    {INTENT_LABELS[lead.intent].label}
+                  </Badge>
+                )}
                 {daysSinceLastActivity >= 10 && (
                   <Badge variant="outline" className="text-xs text-amber-500 border-amber-500/50">
                     {daysSinceLastActivity}d inactive
                   </Badge>
                 )}
               </div>
+
+              {/* Company */}
               {lead.company_name && (
                 <p className="text-sm text-muted-foreground flex items-center gap-1 mt-0.5">
                   <Building2 className="h-3 w-3" />
                   {lead.company_name}
                 </p>
               )}
-              <p className={`text-sm mt-1 ${config.color}`}>
+
+              {/* REASON - "Why this lead, why now?" */}
+              <p className={`text-sm mt-1 font-medium ${config.color}`}>
                 {reason}
               </p>
+
+              {/* CONTEXT NOTE - Last interaction preview */}
+              <div className="flex items-center gap-2 mt-1.5 text-xs text-muted-foreground">
+                <MessageSquare className="h-3 w-3 shrink-0" />
+                <span>{contextNote}</span>
+              </div>
+
+              {/* Layer description for clarity */}
               <p className="text-xs text-muted-foreground mt-1">
-                Last activity: {daysSinceLastActivity === 0 ? 'today' : `${daysSinceLastActivity}d ago`}
-                {lead.current_layer !== 'L5+' && ` · Typical ${nextLayer} interval: ~${typicalInterval}d`}
+                {LAYER_DESCRIPTIONS[lead.current_layer].description}
+                {lead.current_layer !== 'L5+' && nextLayer && typicalInterval && (
+                  <> · Next: {nextLayer} in ~{typicalInterval}d</>
+                )}
               </p>
             </div>
           </div>
+
+          {/* Action buttons */}
           <div className="flex items-center gap-2 shrink-0">
             <Button 
               variant="ghost" 

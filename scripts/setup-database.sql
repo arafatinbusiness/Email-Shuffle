@@ -22,6 +22,8 @@ CREATE TABLE IF NOT EXISTS leads (
   website VARCHAR(500),
   status VARCHAR(20) DEFAULT 'cold' CHECK (status IN ('cold', 'contacted', 'replied', 'converted', 'dead')),
   current_layer VARCHAR(10) DEFAULT 'L1' CHECK (current_layer IN ('L1', 'L2', 'L3', 'L4', 'L5+')),
+  priority VARCHAR(10) DEFAULT NULL CHECK (priority IN ('high', 'medium', 'low')),
+  intent VARCHAR(20) DEFAULT NULL CHECK (intent IN ('cold-outreach', 'follow-up', 'closing', 're-engagement')),
   positive_points TEXT,
   improvements TEXT,
   fb_ads_notes TEXT,
@@ -49,6 +51,7 @@ CREATE TABLE IF NOT EXISTS email_history (
 CREATE INDEX IF NOT EXISTS idx_leads_user_id ON leads(user_id);
 CREATE INDEX IF NOT EXISTS idx_leads_status ON leads(status);
 CREATE INDEX IF NOT EXISTS idx_leads_current_layer ON leads(current_layer);
+CREATE INDEX IF NOT EXISTS idx_leads_priority ON leads(priority);
 CREATE INDEX IF NOT EXISTS idx_leads_next_follow_up ON leads(next_follow_up);
 CREATE INDEX IF NOT EXISTS idx_email_history_lead_id ON email_history(lead_id);
 CREATE INDEX IF NOT EXISTS idx_email_history_user_id ON email_history(user_id);

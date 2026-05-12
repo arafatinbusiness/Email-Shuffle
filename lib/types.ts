@@ -1,5 +1,7 @@
 export type LeadStatus = 'cold' | 'contacted' | 'replied' | 'converted' | 'dead'
 export type LeadLayer = 'L1' | 'L2' | 'L3' | 'L4' | 'L5+'
+export type LeadPriority = 'high' | 'medium' | 'low'
+export type LeadIntent = 'cold-outreach' | 'follow-up' | 'closing' | 're-engagement'
 
 export interface Lead {
   id: number
@@ -10,6 +12,8 @@ export interface Lead {
   website: string | null
   status: LeadStatus
   current_layer: LeadLayer
+  priority: LeadPriority | null
+  intent: LeadIntent | null
   positive_points: string | null
   improvements: string | null
   fb_ads_notes: string | null
@@ -24,6 +28,7 @@ export interface Lead {
 export interface EmailHistory {
   id: number
   lead_id: number
+  user_id: number
   layer: LeadLayer
   subject: string
   body: string
@@ -69,4 +74,17 @@ export const STATUS_CONFIG: Record<LeadStatus, { label: string; color: string; b
   'replied': { label: 'Replied', color: 'text-emerald-400', bgColor: 'bg-emerald-500/10' },
   'converted': { label: 'Converted', color: 'text-green-400', bgColor: 'bg-green-500/10' },
   'dead': { label: 'Dead', color: 'text-red-400', bgColor: 'bg-red-500/10' }
+}
+
+export const PRIORITY_CONFIG: Record<LeadPriority, { label: string; color: string; bgColor: string; order: number }> = {
+  'high': { label: 'High', color: 'text-red-400', bgColor: 'bg-red-500/10', order: 0 },
+  'medium': { label: 'Medium', color: 'text-amber-400', bgColor: 'bg-amber-500/10', order: 1 },
+  'low': { label: 'Low', color: 'text-slate-400', bgColor: 'bg-slate-500/10', order: 2 },
+}
+
+export const INTENT_LABELS: Record<LeadIntent, { label: string; description: string }> = {
+  'cold-outreach': { label: 'Cold Outreach', description: 'First contact, introduction phase' },
+  'follow-up': { label: 'Follow-up', description: 'Nurturing, building relationship' },
+  'closing': { label: 'Closing Attempt', description: 'Strong push, conversion focus' },
+  're-engagement': { label: 'Re-engagement', description: 'Winning back inactive leads' },
 }

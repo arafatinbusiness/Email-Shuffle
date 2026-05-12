@@ -1,4 +1,4 @@
-import { Lead, LeadStatus, LeadLayer } from './types'
+import { Lead, LeadStatus, LeadLayer, LeadPriority, LeadIntent } from './types'
 
 // Export leads to CSV format (Excel compatible)
 export function exportToCSV(leads: Lead[]): string {
@@ -10,6 +10,8 @@ export function exportToCSV(leads: Lead[]): string {
     'Website',
     'Status',
     'Current Layer',
+    'Priority',
+    'Intent',
     'Positive Points',
     'Improvements',
     'FB Ads Notes',
@@ -28,6 +30,8 @@ export function exportToCSV(leads: Lead[]): string {
     lead.website || '',
     lead.status,
     lead.current_layer,
+    lead.priority || '',
+    lead.intent || '',
     lead.positive_points || '',
     lead.improvements || '',
     lead.fb_ads_notes || '',
@@ -96,6 +100,12 @@ export function parseCSV(content: string): Partial<Lead>[] {
         case 'current_layer':
         case 'layer':
           if (isValidLayer(value)) lead.current_layer = value
+          break
+        case 'priority':
+          if (isValidPriority(value)) lead.priority = value
+          break
+        case 'intent':
+          if (isValidIntent(value)) lead.intent = value
           break
         case 'positive_points':
         case 'positives':
@@ -167,6 +177,14 @@ function isValidStatus(value: string): value is LeadStatus {
 
 function isValidLayer(value: string): value is LeadLayer {
   return ['L1', 'L2', 'L3', 'L4', 'L5+'].includes(value.toUpperCase())
+}
+
+function isValidPriority(value: string): value is LeadPriority {
+  return ['high', 'medium', 'low'].includes(value.toLowerCase())
+}
+
+function isValidIntent(value: string): value is LeadIntent {
+  return ['cold-outreach', 'follow-up', 'closing', 're-engagement'].includes(value.toLowerCase())
 }
 
 export function downloadCSV(content: string, filename: string) {

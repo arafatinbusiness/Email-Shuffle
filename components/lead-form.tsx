@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Lead, LeadStatus, LeadLayer } from '@/lib/types'
+import { Lead, LeadStatus, LeadLayer, LeadPriority, LeadIntent, PRIORITY_CONFIG, INTENT_LABELS } from '@/lib/types'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -167,6 +167,44 @@ export function LeadForm({ open, onOpenChange, lead, onSubmit }: LeadFormProps) 
                   <SelectItem value="L3">L3 - Strong Follow-up</SelectItem>
                   <SelectItem value="L4">L4 - Break-up</SelectItem>
                   <SelectItem value="L5+">L5+ - Final Persuasion</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="priority">Priority</Label>
+              <Select
+                value={formData.priority || ''}
+                onValueChange={(value: LeadPriority | '') => updateField('priority', value)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Set priority..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">None</SelectItem>
+                  <SelectItem value="high">🔴 High</SelectItem>
+                  <SelectItem value="medium">🟡 Medium</SelectItem>
+                  <SelectItem value="low">🟢 Low</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="intent">Intent</Label>
+              <Select
+                value={formData.intent || ''}
+                onValueChange={(value: LeadIntent | '') => updateField('intent', value)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Set intent..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">None</SelectItem>
+                  <SelectItem value="cold-outreach">❄️ Cold Outreach</SelectItem>
+                  <SelectItem value="follow-up">📬 Follow-up</SelectItem>
+                  <SelectItem value="closing">🎯 Closing Attempt</SelectItem>
+                  <SelectItem value="re-engagement">🔄 Re-engagement</SelectItem>
                 </SelectContent>
               </Select>
             </div>

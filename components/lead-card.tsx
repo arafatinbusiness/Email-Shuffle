@@ -1,10 +1,10 @@
 'use client'
 
-import { Lead, LAYER_DESCRIPTIONS, STATUS_CONFIG } from '@/lib/types'
+import { Lead, LAYER_DESCRIPTIONS, STATUS_CONFIG, PRIORITY_CONFIG, INTENT_LABELS } from '@/lib/types'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Mail, Calendar, Building2, Globe, MoreHorizontal } from 'lucide-react'
+import { Mail, Calendar, Building2, Globe, MoreHorizontal, Flag, Target } from 'lucide-react'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -72,13 +72,32 @@ export function LeadCard({ lead, onSelect, onDelete }: LeadCardProps) {
                 </div>
               )}
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <Badge className={`${statusConfig.bgColor} ${statusConfig.color} border-0`}>
                 {statusConfig.label}
               </Badge>
               <Badge variant="outline" className="border-primary/30 text-primary">
                 {lead.current_layer} - {layerInfo.name}
               </Badge>
+              {lead.priority && (
+                <Badge 
+                  variant="outline" 
+                  className={`text-xs ${
+                    lead.priority === 'high' ? 'text-red-500 border-red-500/50 bg-red-500/10' :
+                    lead.priority === 'medium' ? 'text-amber-500 border-amber-500/50 bg-amber-500/10' :
+                    'text-slate-500 border-slate-500/50 bg-slate-500/10'
+                  }`}
+                >
+                  <Flag className="h-3 w-3 mr-1" />
+                  {PRIORITY_CONFIG[lead.priority].label}
+                </Badge>
+              )}
+              {lead.intent && (
+                <Badge variant="secondary" className="text-xs">
+                  <Target className="h-3 w-3 mr-1" />
+                  {INTENT_LABELS[lead.intent].label}
+                </Badge>
+              )}
             </div>
           </div>
           <DropdownMenu>
