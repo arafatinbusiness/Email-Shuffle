@@ -54,6 +54,7 @@ export async function POST(request: Request) {
       website,
       status = 'cold',
       current_layer = 'L1',
+      lead_type = 'lead',
       priority,
       intent,
       positive_points,
@@ -67,11 +68,11 @@ export async function POST(request: Request) {
     const result = await sql`
       INSERT INTO leads (
         user_id, first_name, last_name, email, company_name, website,
-        status, current_layer, priority, intent, positive_points, improvements,
+        status, current_layer, lead_type, priority, intent, positive_points, improvements,
         fb_ads_notes, pixel_status, custom_notes, next_follow_up
       ) VALUES (
         ${userId}, ${first_name}, ${last_name || null}, ${email}, ${company_name || null}, ${website || null},
-        ${status}, ${current_layer}, ${priority || null}, ${intent || null}, ${positive_points || null}, ${improvements || null},
+        ${status}, ${current_layer}, ${lead_type}, ${priority || null}, ${intent || null}, ${positive_points || null}, ${improvements || null},
         ${fb_ads_notes || null}, ${pixel_status || null}, ${custom_notes || null}, ${next_follow_up || null}
       )
       RETURNING *

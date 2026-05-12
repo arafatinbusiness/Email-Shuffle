@@ -24,6 +24,7 @@ CREATE TABLE IF NOT EXISTS leads (
   current_layer VARCHAR(10) DEFAULT 'L1' CHECK (current_layer IN ('L1', 'L2', 'L3', 'L4', 'L5+')),
   priority VARCHAR(10) DEFAULT NULL CHECK (priority IN ('high', 'medium', 'low')),
   intent VARCHAR(20) DEFAULT NULL CHECK (intent IN ('cold-outreach', 'follow-up', 'closing', 're-engagement')),
+  lead_type VARCHAR(10) DEFAULT 'lead' CHECK (lead_type IN ('lead', 'customer')),
   positive_points TEXT,
   improvements TEXT,
   fb_ads_notes TEXT,

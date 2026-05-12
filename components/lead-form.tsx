@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Lead, LeadStatus, LeadLayer, LeadPriority, LeadIntent, PRIORITY_CONFIG, INTENT_LABELS } from '@/lib/types'
+import { Lead, LeadStatus, LeadLayer, LeadPriority, LeadIntent, LeadType, PRIORITY_CONFIG, INTENT_LABELS, LEAD_TYPE_CONFIG } from '@/lib/types'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -131,6 +131,22 @@ export function LeadForm({ open, onOpenChange, lead, onSubmit }: LeadFormProps) 
               value={formData.website || ''}
               onChange={(e) => updateField('website', e.target.value)}
             />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="lead_type">Type</Label>
+            <Select
+              value={formData.lead_type || 'lead'}
+              onValueChange={(value: LeadType) => updateField('lead_type', value)}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="lead">📋 Lead - Pitch & Follow-up</SelectItem>
+                <SelectItem value="customer">🤝 Customer - Daily Updates</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="grid grid-cols-2 gap-4">

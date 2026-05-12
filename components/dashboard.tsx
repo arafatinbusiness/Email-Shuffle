@@ -11,6 +11,7 @@ import { LeadForm } from './lead-form'
 import { LeadDetail } from './lead-detail'
 import { ActionCenter } from './action-center'
 import { PipelineView } from './pipeline-view'
+import { CustomerUpdates } from './customer-updates'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
@@ -41,7 +42,8 @@ import {
   ListTodo,
   Users,
   LogOut,
-  User
+  User,
+  Handshake
 } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -63,7 +65,11 @@ export function Dashboard() {
   const [activeTab, setActiveTab] = useState('actions')
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  const filteredLeads = leads.filter(lead => {
+  // Separate leads and customers
+  const leadsOnly = leads.filter(l => l.lead_type !== 'customer')
+  const customers = leads.filter(l => l.lead_type === 'customer')
+
+  const filteredLeads = leadsOnly.filter(lead => {
     const matchesSearch = 
       lead.first_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       lead.last_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -92,7 +98,6 @@ export function Dashboard() {
   }
 
   const handleUpdateLead = async (data: Partial<Lead>) => {
-    // Use the lead from the form if editing, otherwise use selectedLead
     const leadToUpdate = isEditing && selectedLead ? selectedLead : selectedLead
     if (!leadToUpdate) return
     try {
@@ -174,7 +179,6 @@ export function Dashboard() {
     const isXLSX = file.name.endsWith('.xlsx') || file.name.endsWith('.xls')
 
     if (isXLSX) {
-      // Read XLSX as ArrayBuffer
       const reader = new FileReader()
       reader.onload = async (event) => {
         try {
@@ -211,7 +215,6 @@ export function Dashboard() {
       }
       reader.readAsArrayBuffer(file)
     } else {
-      // Read CSV as text
       const reader = new FileReader()
       reader.onload = async (event) => {
         const content = event.target?.result as string
@@ -245,7 +248,6 @@ export function Dashboard() {
       reader.readAsText(file)
     }
     
-    // Reset file input
     if (fileInputRef.current) fileInputRef.current.value = ''
   }
 
@@ -342,7 +344,7 @@ export function Dashboard() {
           <TabsList>
             <TabsTrigger value="actions" className="gap-2">
               <ListTodo className="h-4 w-4" />
-              Today&apos;s Actions
+              Today's Actions
             </TabsTrigger>
             <TabsTrigger value="pipeline" className="gap-2">
               <LayoutDashboard className="h-4 w-4" />
@@ -350,14 +352,18 @@ export function Dashboard() {
             </TabsTrigger>
             <TabsTrigger value="all-leads" className="gap-2">
               <Users className="h-4 w-4" />
-              All Leads ({leads.length})
+              All Leads ({leadsOnly.length})
+            </TabsTrigger>
+            <TabsTrigger value="customers" className="gap-2">
+              <Handshake className="h-4 w-4" />
+              Customers ({customers.length})
             </TabsTrigger>
           </TabsList>
 
           {/* TODAY'S ACTIONS - Main Feature */}
           <TabsContent value="actions" className="space-y-6">
             <ActionCenter 
-              leads={leads} 
+              leads={leadsOnly} 
               onSelectLead={handleSelectLead}
               onUpdateLead={handleMarkEmailSent}
             />
@@ -365,7 +371,7 @@ export function Dashboard() {
 
           {/* PIPELINE VIEW */}
           <TabsContent value="pipeline" className="space-y-6">
-            <PipelineView leads={leads} />
+            <PipelineView leads={leadsOnly} />
           </TabsContent>
 
           {/* ALL LEADS */}
@@ -420,7 +426,7 @@ export function Dashboard() {
             ) : filteredLeads.length === 0 ? (
               <div className="text-center py-12">
                 <p className="text-muted-foreground">
-                  {leads.length === 0 ? 'No leads yet. Add your first lead to get started!' : 'No leads match your filters.'}
+                  {leadsOnly.length === 0 ? 'No leads yet. Add your first lead to get started!' : 'No leads match your filters.'}
                 </p>
               </div>
             ) : (
@@ -435,6 +441,16 @@ export function Dashboard() {
                 ))}
               </div>
             )}
+          </TabsContent>
+
+          {/* CUSTOMERS TAB */}
+          <TabsContent value="customers" className="space-y-6">
+            <CustomerUpdates
+              customers={customers}
+              onSelectCustomer={handleSelectLead}
+              onUpdateCustomer={handleUpdateLead}
+              onDeleteCustomer={handleDeleteLead}
+            />
           </TabsContent>
         </Tabs>
       </main>

@@ -1,4 +1,4 @@
-import { Lead, LeadStatus, LeadLayer, LeadPriority, LeadIntent } from './types'
+import { Lead, LeadStatus, LeadLayer, LeadPriority, LeadIntent, LeadType } from './types'
 import * as XLSX from 'xlsx'
 
 // Export leads to CSV format (Excel compatible)
@@ -11,6 +11,7 @@ export function exportToCSV(leads: Lead[]): string {
     'Website',
     'Status',
     'Current Layer',
+    'Type',
     'Priority',
     'Intent',
     'Positive Points',
@@ -31,6 +32,7 @@ export function exportToCSV(leads: Lead[]): string {
     lead.website || '',
     lead.status,
     lead.current_layer,
+    lead.lead_type || 'lead',
     lead.priority || '',
     lead.intent || '',
     lead.positive_points || '',
@@ -101,6 +103,10 @@ export function parseCSV(content: string): Partial<Lead>[] {
         case 'current_layer':
         case 'layer':
           if (isValidLayer(value)) lead.current_layer = value
+          break
+        case 'type':
+        case 'lead_type':
+          if (isValidLeadType(value)) lead.lead_type = value
           break
         case 'priority':
           if (isValidPriority(value)) lead.priority = value
@@ -190,6 +196,10 @@ export function parseXLSX(data: ArrayBuffer): Partial<Lead>[] {
         case 'layer':
           if (isValidLayer(strValue)) lead.current_layer = strValue
           break
+        case 'type':
+        case 'lead_type':
+          if (isValidLeadType(strValue)) lead.lead_type = strValue
+          break
         case 'priority':
           if (isValidPriority(strValue)) lead.priority = strValue
           break
@@ -274,6 +284,10 @@ function isValidPriority(value: string): value is LeadPriority {
 
 function isValidIntent(value: string): value is LeadIntent {
   return ['cold-outreach', 'follow-up', 'closing', 're-engagement'].includes(value.toLowerCase())
+}
+
+function isValidLeadType(value: string): value is LeadType {
+  return ['lead', 'customer'].includes(value.toLowerCase())
 }
 
 export function downloadCSV(content: string, filename: string) {

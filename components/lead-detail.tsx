@@ -1,6 +1,6 @@
 'use client'
 
-import { Lead, LeadLayer, STATUS_CONFIG, LAYER_DESCRIPTIONS } from '@/lib/types'
+import { Lead, LeadLayer, STATUS_CONFIG, LAYER_DESCRIPTIONS, LEAD_TYPE_CONFIG } from '@/lib/types'
 import { EmailGenerator } from './email-generator'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -57,6 +57,25 @@ export function LeadDetail({ lead, open, onOpenChange, onEdit, onUpdate }: LeadD
     })
   }
 
+  const handleSaveCustomEmail = async (subject: string, body: string) => {
+    // Save custom email to email_history via API
+    try {
+      const res = await fetch(`/api/leads/${lead.id}/emails`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          layer: 'custom',
+          subject,
+          body,
+        }),
+      })
+      if (!res.ok) throw new Error('Failed to save')
+    } catch (error) {
+      console.error('Failed to save custom email:', error)
+      throw error
+    }
+  }
+
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent className="w-full sm:max-w-2xl overflow-y-auto">
@@ -76,6 +95,11 @@ export function LeadDetail({ lead, open, onOpenChange, onEdit, onUpdate }: LeadD
                 <Badge variant="outline" className="border-primary/30 text-primary">
                   {lead.current_layer} - {layerInfo.name}
                 </Badge>
+                {lead.lead_type === 'customer' && (
+                  <Badge variant="outline" className="text-emerald-500 border-emerald-500/50 bg-emerald-500/10">
+                    🤝 Customer
+                  </Badge>
+                )}
               </div>
             </div>
           </div>
@@ -99,6 +123,7 @@ export function LeadDetail({ lead, open, onOpenChange, onEdit, onUpdate }: LeadD
               onLayerChange={handleLayerChange}
               onMarkSent={handleMarkSent}
               onSaveTemplate={handleSaveTemplate}
+              onSaveCustomEmail={handleSaveCustomEmail}
             />
           </TabsContent>
 

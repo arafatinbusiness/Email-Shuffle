@@ -1,6 +1,6 @@
 'use client'
 
-import { Lead, LAYER_DESCRIPTIONS, STATUS_CONFIG, PRIORITY_CONFIG, INTENT_LABELS } from '@/lib/types'
+import { Lead, LAYER_DESCRIPTIONS, STATUS_CONFIG, PRIORITY_CONFIG, INTENT_LABELS, LEAD_TYPE_CONFIG } from '@/lib/types'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -96,6 +96,11 @@ export function LeadCard({ lead, onSelect, onDelete }: LeadCardProps) {
                 <Badge variant="secondary" className="text-xs">
                   <Target className="h-3 w-3 mr-1" />
                   {INTENT_LABELS[lead.intent].label}
+                </Badge>
+              )}
+              {lead.lead_type === 'customer' && (
+                <Badge variant="outline" className="text-xs text-emerald-500 border-emerald-500/50 bg-emerald-500/10">
+                  🤝 Customer
                 </Badge>
               )}
             </div>

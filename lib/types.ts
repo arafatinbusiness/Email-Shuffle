@@ -2,6 +2,7 @@ export type LeadStatus = 'cold' | 'contacted' | 'replied' | 'converted' | 'dead'
 export type LeadLayer = 'L1' | 'L2' | 'L3' | 'L4' | 'L5+'
 export type LeadPriority = 'high' | 'medium' | 'low'
 export type LeadIntent = 'cold-outreach' | 'follow-up' | 'closing' | 're-engagement'
+export type LeadType = 'lead' | 'customer'
 
 export interface Lead {
   id: number
@@ -14,6 +15,7 @@ export interface Lead {
   current_layer: LeadLayer
   priority: LeadPriority | null
   intent: LeadIntent | null
+  lead_type: LeadType
   positive_points: string | null
   improvements: string | null
   fb_ads_notes: string | null
@@ -29,7 +31,7 @@ export interface EmailHistory {
   id: number
   lead_id: number
   user_id: number
-  layer: LeadLayer
+  layer: string
   subject: string
   body: string
   generated_at: string
@@ -87,4 +89,9 @@ export const INTENT_LABELS: Record<LeadIntent, { label: string; description: str
   'follow-up': { label: 'Follow-up', description: 'Nurturing, building relationship' },
   'closing': { label: 'Closing Attempt', description: 'Strong push, conversion focus' },
   're-engagement': { label: 'Re-engagement', description: 'Winning back inactive leads' },
+}
+
+export const LEAD_TYPE_CONFIG: Record<LeadType, { label: string; color: string; bgColor: string }> = {
+  'lead': { label: 'Lead', color: 'text-blue-400', bgColor: 'bg-blue-500/10' },
+  'customer': { label: 'Customer', color: 'text-emerald-400', bgColor: 'bg-emerald-500/10' },
 }
