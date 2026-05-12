@@ -13,6 +13,7 @@ import {
   Send,
   RefreshCw,
   Reply,
+  Settings,
   ChevronLeft,
   ChevronRight,
   User,
@@ -58,7 +59,11 @@ interface ThreadDetail {
   messages: MessageData[]
 }
 
-export function MailboxInbox() {
+interface MailboxInboxProps {
+  onOpenSettings?: () => void
+}
+
+export function MailboxInbox({ onOpenSettings }: MailboxInboxProps) {
   const [threads, setThreads] = useState<ThreadData[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedThread, setSelectedThread] = useState<ThreadDetail | null>(null)
@@ -173,10 +178,16 @@ export function MailboxInbox() {
             Conversations with your leads and customers
           </p>
         </div>
-        <Button variant="outline" size="sm" onClick={handleSync}>
-          <RefreshCw className="h-4 w-4 mr-2" />
-          Sync
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={onOpenSettings}>
+            <Settings className="h-4 w-4 mr-2" />
+            Settings
+          </Button>
+          <Button variant="outline" size="sm" onClick={handleSync}>
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Sync
+          </Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">

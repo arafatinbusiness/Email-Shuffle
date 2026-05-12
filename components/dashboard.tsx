@@ -66,6 +66,7 @@ export function Dashboard() {
   const [statusFilter, setStatusFilter] = useState<LeadStatus | 'all'>('all')
   const [layerFilter, setLayerFilter] = useState<LeadLayer | 'all'>('all')
   const [activeTab, setActiveTab] = useState('actions')
+  const [activeMailboxView, setActiveMailboxView] = useState<'inbox' | 'settings'>('inbox')
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   // Separate leads and customers
@@ -462,7 +463,11 @@ export function Dashboard() {
 
           {/* MAILBOX TAB */}
           <TabsContent value="mailbox" className="space-y-6">
-            <MailboxInbox />
+            {activeMailboxView === 'inbox' ? (
+              <MailboxInbox onOpenSettings={() => setActiveMailboxView('settings')} />
+            ) : (
+              <MailboxSettings onBack={() => setActiveMailboxView('inbox')} />
+            )}
           </TabsContent>
         </Tabs>
       </main>

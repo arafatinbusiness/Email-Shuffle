@@ -23,7 +23,11 @@ interface MailboxAccountData {
   created_at: string
 }
 
-export function MailboxSettings() {
+interface MailboxSettingsProps {
+  onBack?: () => void
+}
+
+export function MailboxSettings({ onBack }: MailboxSettingsProps) {
   const [account, setAccount] = useState<MailboxAccountData | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
