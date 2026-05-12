@@ -53,6 +53,19 @@ export function CampaignManager() {
     loadData()
   }, [])
 
+  // Poll for scheduled campaigns every 30 seconds (for local dev, since Vercel cron only runs in production)
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      try {
+        await fetch('/api/campaigns/process-scheduled', { method: 'POST' })
+        loadData()
+      } catch {
+        // silent fail - cron will handle it in production
+      }
+    }, 30000)
+    return () => clearInterval(interval)
+  }, [])
+
   const loadData = async () => {
     setIsLoading(true)
     try {
