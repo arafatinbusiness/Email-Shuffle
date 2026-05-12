@@ -77,5 +77,6 @@ export interface ThreadWithMessages {
 
 export const DEFAULT_IMAP_PORT = 993
 export const DEFAULT_SMTP_PORT = 465
-export const SPACEMAIL_IMAP_HOST = 'imap.spacemail.com'
-export const SPACEMAIL_SMTP_HOST = 'smtp.spacemail.com'
+export const SPACEMAIL_HOST = 'mail.spacemail.com'
+export const SPACEMAIL_IMAP_HOST = SPACEMAIL_HOST
+export const SPACEMAIL_SMTP_HOST = SPACEMAIL_HOST

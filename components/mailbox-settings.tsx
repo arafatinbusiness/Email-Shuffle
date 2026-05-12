@@ -169,7 +169,7 @@ export function MailboxSettings() {
           </CardTitle>
           <CardDescription>
             Configure your email account for sending and receiving emails through the app.
-            Uses SpaceMail defaults (imap.spacemail.com / smtp.spacemail.com).
+            Uses SpaceMail defaults (mail.spacemail.com for both IMAP and SMTP).
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
