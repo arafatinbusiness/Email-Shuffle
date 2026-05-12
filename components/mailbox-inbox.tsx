@@ -228,6 +228,28 @@ export function MailboxInbox({ onOpenSettings }: MailboxInboxProps) {
     }
   }
 
+  const handleReSyncAll = async () => {
+    const confirmed = window.confirm(
+      'This will delete ALL existing emails and threads, then re-sync everything from your inbox. Continue?'
+    )
+    if (!confirmed) return
+
+    toast.info('Re-syncing all emails...')
+    try {
+      const res = await fetch('/api/mailbox/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clearFirst: true }),
+      })
+      if (!res.ok) throw new Error('Re-sync failed')
+      const data = await res.json()
+      toast.success(`Re-synced ${data.synced} emails (${data.replies} replies)`)
+      await fetchThreads()
+    } catch {
+      toast.error('Failed to re-sync inbox')
+    }
+  }
+
   const handleCopy = async (text: string, field: string) => {
     await navigator.clipboard.writeText(text)
     setCopiedField(field)
@@ -253,6 +275,10 @@ export function MailboxInbox({ onOpenSettings }: MailboxInboxProps) {
           <Button variant="outline" size="sm" onClick={handleSync}>
             <RefreshCw className="h-4 w-4 mr-2" />
             Sync
+          </Button>
+          <Button variant="outline" size="sm" onClick={handleReSyncAll} className="text-destructive hover:text-destructive">
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Re-sync All
           </Button>
         </div>
       </div>
