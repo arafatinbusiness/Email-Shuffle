@@ -14,7 +14,7 @@ export async function GET() {
     const sql = getDb()
     const userId = parseInt(session.user.id)
     const accounts = await sql`
-      SELECT id, email, imap_host, imap_port, smtp_host, smtp_port, sync_enabled, last_sync_at, created_at, send_as
+      SELECT id, email, imap_host, imap_port, smtp_host, smtp_port, sync_enabled, last_sync_at, created_at, send_as, signature
       FROM mailbox_accounts
       WHERE user_id = ${userId}
       LIMIT 1
@@ -37,7 +37,7 @@ export async function POST(request: Request) {
     const sql = getDb()
     const userId = parseInt(session.user.id)
     const body = await request.json()
-    const { email, imap_host, imap_port, smtp_host, smtp_port, password, sync_enabled, send_as } = body
+    const { email, imap_host, imap_port, smtp_host, smtp_port, password, sync_enabled, send_as, signature } = body
 
     if (!email || !imap_host || !smtp_host || !password) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
@@ -61,19 +61,20 @@ export async function POST(request: Request) {
           encrypted_password = ${encryptedPassword},
           sync_enabled = ${sync_enabled !== false},
           send_as = ${send_as || null},
+          signature = ${signature || null},
           updated_at = NOW()
         WHERE user_id = ${userId}
       `
     } else {
       await sql`
-        INSERT INTO mailbox_accounts (user_id, email, imap_host, imap_port, smtp_host, smtp_port, encrypted_password, sync_enabled, send_as)
-        VALUES (${userId}, ${email}, ${imap_host}, ${imap_port || 993}, ${smtp_host}, ${smtp_port || 465}, ${encryptedPassword}, ${sync_enabled !== false}, ${send_as || null})
+        INSERT INTO mailbox_accounts (user_id, email, imap_host, imap_port, smtp_host, smtp_port, encrypted_password, sync_enabled, send_as, signature)
+        VALUES (${userId}, ${email}, ${imap_host}, ${imap_port || 993}, ${smtp_host}, ${smtp_port || 465}, ${encryptedPassword}, ${sync_enabled !== false}, ${send_as || null}, ${signature || null})
       `
     }
 
     // Re-fetch to return clean data
     const updated = await sql`
-      SELECT id, email, imap_host, imap_port, smtp_host, smtp_port, sync_enabled, last_sync_at, created_at, send_as
+      SELECT id, email, imap_host, imap_port, smtp_host, smtp_port, sync_enabled, last_sync_at, created_at, send_as, signature
       FROM mailbox_accounts WHERE user_id = ${userId}
     `
 
@@ -81,6 +82,38 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error('Failed to save mailbox account:', error)
     return NextResponse.json({ error: 'Failed to save mailbox account' }, { status: 500 })
+  }
+}
+
+// PATCH /api/mailbox/account - Update signature only (no password needed)
+export async function PATCH(request: Request) {
+  const session = await auth()
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
+  try {
+    const sql = getDb()
+    const userId = parseInt(session.user.id)
+    const body = await request.json()
+    const { signature } = body
+
+    await sql`
+      UPDATE mailbox_accounts SET
+        signature = ${signature || null},
+        updated_at = NOW()
+      WHERE user_id = ${userId}
+    `
+
+    const updated = await sql`
+      SELECT id, email, imap_host, imap_port, smtp_host, smtp_port, sync_enabled, last_sync_at, created_at, send_as, signature
+      FROM mailbox_accounts WHERE user_id = ${userId}
+    `
+
+    return NextResponse.json(updated[0])
+  } catch (error) {
+    console.error('Failed to update signature:', error)
+    return NextResponse.json({ error: 'Failed to update signature' }, { status: 500 })
   }
 }
 

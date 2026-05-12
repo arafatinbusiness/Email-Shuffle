@@ -16,6 +16,7 @@ interface MailboxConfig {
   smtp_port: number
   password: string
   send_as?: string | null
+  signature?: string | null
 }
 
 // ============================================================
@@ -392,6 +393,7 @@ export async function getMailboxConfig(userId: number): Promise<MailboxConfig | 
     smtp_port: account.smtp_port,
     password,
     send_as: account.send_as || null,
+    signature: account.signature || null,
   }
 }
 

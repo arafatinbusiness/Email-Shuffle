@@ -28,8 +28,13 @@ export async function POST(request: Request) {
     // Determine sender email: request send_as > config send_as > config email
     const senderEmail = send_as || config.send_as || config.email
 
+    // Append signature to email body
+    const bodyWithSignature = config.signature
+      ? emailBody + '\n\n' + config.signature
+      : emailBody
+
     // Send via SMTP
-    const result = await sendEmail(config, to, subject, emailBody, in_reply_to, references, senderEmail)
+    const result = await sendEmail(config, to, subject, bodyWithSignature, in_reply_to, references, senderEmail)
 
     // Find or create thread
     const threadId = thread_id || await findOrCreateThread(

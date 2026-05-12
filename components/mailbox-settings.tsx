@@ -22,6 +22,7 @@ interface MailboxAccountData {
   last_sync_at: string | null
   created_at: string
   send_as: string | null
+  signature: string | null
 }
 
 interface MailboxSettingsProps {
@@ -43,6 +44,8 @@ export function MailboxSettings({ onBack }: MailboxSettingsProps) {
   const [smtpPort, setSmtpPort] = useState(DEFAULT_SMTP_PORT)
   const [syncEnabled, setSyncEnabled] = useState(true)
   const [sendAs, setSendAs] = useState('')
+  const [signature, setSignature] = useState('')
+  const [savingSignature, setSavingSignature] = useState(false)
 
   useEffect(() => {
     fetchAccount()
@@ -63,6 +66,7 @@ export function MailboxSettings({ onBack }: MailboxSettingsProps) {
           setSmtpPort(data.smtp_port)
           setSyncEnabled(data.sync_enabled)
           setSendAs(data.send_as || '')
+          setSignature(data.signature || '')
         }
       }
     } catch {
@@ -293,6 +297,62 @@ export function MailboxSettings({ onBack }: MailboxSettingsProps) {
               Leave blank to use your main email.
             </p>
           </div>
+
+          {account && (
+            <div className="border-t pt-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="signature" className="text-sm font-medium">Email Signature</Label>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={async () => {
+                    setSavingSignature(true)
+                    try {
+                      const res = await fetch('/api/mailbox/account', {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ signature }),
+                      })
+                      if (!res.ok) throw new Error('Failed to save signature')
+                      const data = await res.json()
+                      setAccount(data)
+                      toast.success('Signature saved')
+                    } catch {
+                      toast.error('Failed to save signature')
+                    } finally {
+                      setSavingSignature(false)
+                    }
+                  }}
+                  disabled={savingSignature}
+                >
+                  {savingSignature ? (
+                    <RefreshCw className="h-3 w-3 mr-1 animate-spin" />
+                  ) : (
+                    <Check className="h-3 w-3 mr-1" />
+                  )}
+                  Save Signature
+                </Button>
+              </div>
+              <textarea
+                id="signature"
+                value={signature}
+                onChange={(e) => setSignature(e.target.value)}
+                placeholder={`Enter your email signature...
+
+Example:
+--
+John Doe
+CEO, Your Company
+Phone: +1 234 567 890
+www.yourcompany.com`}
+                className="w-full min-h-[120px] px-3 py-2 text-sm border rounded-md bg-background resize-y focus:outline-none focus:ring-2 focus:ring-ring"
+              />
+              <p className="text-xs text-muted-foreground">
+                This signature will be appended to all emails sent from this mailbox.
+                You can also set a per-campaign signature in the campaign settings.
+              </p>
+            </div>
+          )}
 
           <div className="flex items-center justify-between pt-2">
             <div className="flex items-center gap-2">

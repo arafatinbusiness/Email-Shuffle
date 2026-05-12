@@ -91,12 +91,18 @@ export function CampaignManager() {
   const [campaignName, setCampaignName] = useState('')
   const [subject, setSubject] = useState('')
   const [body, setBody] = useState('')
-  const [sendType, setSendType] = useState<'instant' | 'scheduled' | 'random_gap'>('instant')
+  const [sendType, setSendType] = useState<'instant' | 'scheduled' | 'smart_spacing'>('instant')
   const [scheduledDate, setScheduledDate] = useState('')
   const [scheduledTime, setScheduledTime] = useState('')
   const [gapMinutes, setGapMinutes] = useState(3)
+  const [gapMinMax, setGapMinMax] = useState(7)
+  const [businessHoursOnly, setBusinessHoursOnly] = useState(false)
+  const [dailyCap, setDailyCap] = useState(50)
+  const [businessHoursStart, setBusinessHoursStart] = useState('09:00')
+  const [businessHoursEnd, setBusinessHoursEnd] = useState('18:00')
   const [selectedLeadIds, setSelectedLeadIds] = useState<number[]>([])
   const [selectAll, setSelectAll] = useState(false)
+  const [campaignSignature, setCampaignSignature] = useState('')
   const [isCreating, setIsCreating] = useState(false)
   const [isSending, setIsSending] = useState<number | null>(null)
 
@@ -197,6 +203,7 @@ export function CampaignManager() {
         send_type: sendType,
         gap_minutes: gapMinutes,
         lead_ids: selectedLeadIds,
+        signature: campaignSignature,
       }
 
       if (sendType === 'scheduled') {
@@ -205,7 +212,17 @@ export function CampaignManager() {
           setIsCreating(false)
           return
         }
-        payload.scheduled_at = `${scheduledDate}T${scheduledTime}:00`
+        // Convert local time to UTC for storage
+        const localDate = new Date(`${scheduledDate}T${scheduledTime}:00`)
+        payload.scheduled_at = localDate.toISOString()
+      }
+
+      if (sendType === 'smart_spacing') {
+        payload.gap_min_max = gapMinMax
+        payload.business_hours_only = businessHoursOnly
+        payload.daily_cap = dailyCap
+        payload.business_hours_start = businessHoursStart
+        payload.business_hours_end = businessHoursEnd
       }
 
       const res = await fetch('/api/campaigns', {
@@ -451,7 +468,7 @@ export function CampaignManager() {
 
       {/* Create Campaign Dialog */}
       <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-7xl w-[95vw] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Create New Campaign</DialogTitle>
           </DialogHeader>
@@ -487,6 +504,27 @@ export function CampaignManager() {
               />
             </div>
 
+            <div>
+              <Label>Email Signature (optional)</Label>
+              <textarea
+                value={campaignSignature}
+                onChange={(e) => setCampaignSignature(e.target.value)}
+                placeholder={`Enter your email signature...
+
+Example:
+--
+John Doe
+CEO, Your Company
+Phone: +1 234 567 890
+www.yourcompany.com`}
+                className="w-full min-h-[80px] mt-1 px-3 py-2 text-sm border rounded-md bg-background resize-y focus:outline-none focus:ring-2 focus:ring-ring"
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                This signature will be appended to every email in this campaign.
+                If you also have a mailbox signature set, the campaign signature will be used instead.
+              </p>
+            </div>
+
             {/* Send Options */}
             <Card>
               <CardHeader className="pb-2">
@@ -497,27 +535,79 @@ export function CampaignManager() {
                   <TabsList className="grid grid-cols-3">
                     <TabsTrigger value="instant">Send Now</TabsTrigger>
                     <TabsTrigger value="scheduled">Schedule</TabsTrigger>
-                    <TabsTrigger value="random_gap">Random Gap</TabsTrigger>
+                    <TabsTrigger value="smart_spacing">Smart Spacing</TabsTrigger>
                   </TabsList>
                   <TabsContent value="instant" className="mt-2">
-                    <p className="text-xs text-muted-foreground">All emails sent immediately.</p>
+                    <p className="text-xs text-muted-foreground">All emails sent immediately. Not recommended for bulk sending.</p>
                   </TabsContent>
                   <TabsContent value="scheduled" className="mt-2 space-y-2">
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="grid grid-cols-2 gap-4">
                       <div>
                         <Label className="text-xs">Date</Label>
-                        <Input type="date" value={scheduledDate} onChange={(e) => setScheduledDate(e.target.value)} className="mt-1" />
+                        <Input type="date" value={scheduledDate} onChange={(e) => setScheduledDate(e.target.value)} className="mt-1 w-full" />
                       </div>
                       <div>
                         <Label className="text-xs">Time</Label>
-                        <Input type="time" value={scheduledTime} onChange={(e) => setScheduledTime(e.target.value)} className="mt-1" />
+                        <Input type="time" value={scheduledTime} onChange={(e) => setScheduledTime(e.target.value)} className="mt-1 w-full" />
                       </div>
                     </div>
+                    <p className="text-xs text-muted-foreground">Emails start sending at the scheduled time with smart spacing between each.</p>
                   </TabsContent>
-                  <TabsContent value="random_gap" className="mt-2 space-y-2">
-                    <div>
-                      <Label className="text-xs">Gap (minutes)</Label>
-                      <Input type="number" min={1} max={60} value={gapMinutes} onChange={(e) => setGapMinutes(parseInt(e.target.value) || 3)} className="mt-1" />
+                  <TabsContent value="smart_spacing" className="mt-2 space-y-3">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <Label className="text-xs">Min Delay (minutes)</Label>
+                        <Input type="number" min={1} max={120} value={gapMinutes} onChange={(e) => setGapMinutes(parseInt(e.target.value) || 3)} className="mt-1" />
+                      </div>
+                      <div>
+                        <Label className="text-xs">Max Delay (minutes)</Label>
+                        <Input type="number" min={1} max={120} value={gapMinMax} onChange={(e) => setGapMinMax(parseInt(e.target.value) || 7)} className="mt-1" />
+                      </div>
+                    </div>
+                    <p className="text-xs text-muted-foreground">Random delay between Min-Max minutes per email. Looks more human than fixed gaps.</p>
+                    
+                    <div className="border-t pt-3 space-y-2">
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          id="businessHours"
+                          checked={businessHoursOnly}
+                          onChange={(e) => setBusinessHoursOnly(e.target.checked)}
+                          className="rounded"
+                        />
+                        <Label htmlFor="businessHours" className="text-xs cursor-pointer">Business hours only (Mon-Fri)</Label>
+                      </div>
+                      {businessHoursOnly && (
+                        <div className="grid grid-cols-2 gap-2 ml-5">
+                          <div>
+                            <Label className="text-xs">Start</Label>
+                            <Input type="time" value={businessHoursStart} onChange={(e) => setBusinessHoursStart(e.target.value)} className="mt-1" />
+                          </div>
+                          <div>
+                            <Label className="text-xs">End</Label>
+                            <Input type="time" value={businessHoursEnd} onChange={(e) => setBusinessHoursEnd(e.target.value)} className="mt-1" />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="border-t pt-3">
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          id="dailyCap"
+                          checked={dailyCap > 0}
+                          onChange={(e) => setDailyCap(e.target.checked ? 50 : 0)}
+                          className="rounded"
+                        />
+                        <Label htmlFor="dailyCap" className="text-xs cursor-pointer">Daily sending limit</Label>
+                      </div>
+                      {dailyCap > 0 && (
+                        <div className="ml-5 mt-2">
+                          <Label className="text-xs">Max emails per day</Label>
+                          <Input type="number" min={1} max={500} value={dailyCap} onChange={(e) => setDailyCap(parseInt(e.target.value) || 50)} className="mt-1" />
+                        </div>
+                      )}
                     </div>
                   </TabsContent>
                 </Tabs>

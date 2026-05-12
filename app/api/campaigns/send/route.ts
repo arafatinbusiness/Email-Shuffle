@@ -71,12 +71,13 @@ export async function POST(request: Request) {
           // Personalize the email
           const personalizedSubject = personalizeText(campaign.subject, recipient)
           const personalizedBody = personalizeText(campaign.body, recipient)
+          const bodyWithSignature = appendSignature(personalizedBody, campaign.signature, config.signature || null)
 
           const result = await sendEmail(
             config,
             recipient.email,
             personalizedSubject,
-            personalizedBody,
+            bodyWithSignature,
             undefined,
             undefined,
             senderEmail
@@ -160,7 +161,7 @@ export async function POST(request: Request) {
 
       return NextResponse.json({
         success: true,
-        message: `Campaign scheduled with ${recipients.length} recipients. Emails will be sent with ${campaign.gap_minutes} minute gap.`,
+        message: `Campaign scheduled with ${recipients.length} recipients. Emails will be sent with smart spacing.`,
         campaign,
       })
     }
@@ -181,6 +182,101 @@ function personalizeText(text: string, recipient: any): string {
     .replace(/{{email}}/gi, recipient.email)
     .replace(/{{company}}/gi, recipient.company_name || 'your company')
     .replace(/{{company_name}}/gi, recipient.company_name || 'your company')
+}
+
+// Append signature to email body
+function appendSignature(body: string, campaignSignature: string | null, mailboxSignature: string | null): string {
+  // Campaign signature takes priority over mailbox signature
+  const sig = campaignSignature || mailboxSignature
+  if (!sig) return body
+  return body + '\n\n' + sig
+}
+
+// Calculate delay in milliseconds based on campaign settings
+function calculateDelay(campaign: any): number {
+  const baseGap = campaign.gap_minutes || 3
+  const maxGap = campaign.gap_min_max || 0
+
+  if (maxGap > baseGap) {
+    // Random range: pick a random number between baseGap and maxGap
+    const randomMinutes = baseGap + Math.random() * (maxGap - baseGap)
+    return Math.round(randomMinutes * 60 * 1000)
+  }
+
+  // Fixed gap with small jitter (+/- 20%)
+  const jitter = (Math.random() - 0.5) * 0.4 * baseGap // +/- 20%
+  return Math.round((baseGap + jitter) * 60 * 1000)
+}
+
+// Check if current time is within business hours
+function isWithinBusinessHours(campaign: any): boolean {
+  if (!campaign.business_hours_only) return true
+
+  const now = new Date()
+  const dayOfWeek = now.getDay()
+  
+  // Skip weekends (0=Sunday, 6=Saturday)
+  if (dayOfWeek === 0 || dayOfWeek === 6) return false
+
+  const currentMinutes = now.getHours() * 60 + now.getMinutes()
+  
+  const startParts = (campaign.business_hours_start || '09:00').split(':')
+  const endParts = (campaign.business_hours_end || '18:00').split(':')
+  
+  const startMinutes = parseInt(startParts[0]) * 60 + parseInt(startParts[1] || '0')
+  const endMinutes = parseInt(endParts[0]) * 60 + parseInt(endParts[1] || '0')
+
+  return currentMinutes >= startMinutes && currentMinutes < endMinutes
+}
+
+// Calculate milliseconds until next business hours
+function msUntilNextBusinessHours(campaign: any): number {
+  const now = new Date()
+  const startParts = (campaign.business_hours_start || '09:00').split(':')
+  const startHour = parseInt(startParts[0])
+  const startMin = parseInt(startParts[1] || '0')
+
+  // Try today's start time
+  const todayStart = new Date(now)
+  todayStart.setHours(startHour, startMin, 0, 0)
+
+  // If we're before business hours today, wait until they start
+  if (now < todayStart) {
+    return todayStart.getTime() - now.getTime()
+  }
+
+  // Otherwise, wait until next business day
+  const tomorrow = new Date(now)
+  tomorrow.setDate(tomorrow.getDate() + 1)
+  tomorrow.setHours(startHour, startMin, 0, 0)
+
+  // Skip weekends
+  let daysToAdd = 1
+  while (tomorrow.getDay() === 0 || tomorrow.getDay() === 6) {
+    tomorrow.setDate(tomorrow.getDate() + 1)
+    daysToAdd++
+  }
+
+  return tomorrow.getTime() - now.getTime()
+}
+
+// Check if daily cap has been reached
+async function checkDailyCap(sql: any, campaignId: number, campaign: any): Promise<boolean> {
+  if (!campaign.daily_cap || campaign.daily_cap <= 0) return false
+
+  const today = new Date().toISOString().split('T')[0]
+
+  // If last_sent_date is not today, reset the counter
+  if (campaign.last_sent_date !== today) {
+    await sql`
+      UPDATE email_campaigns
+      SET last_sent_date = ${today}::date, today_sent_count = 0
+      WHERE id = ${campaignId}
+    `
+    return false
+  }
+
+  return (campaign.today_sent_count || 0) >= campaign.daily_cap
 }
 
 // Background processor for scheduled/random_gap campaigns
@@ -217,11 +313,36 @@ async function processScheduledCampaign(campaignId: number, userId: number) {
     for (let i = 0; i < recipients.length; i++) {
       // Check if campaign was paused or cancelled
       const currentCampaign = await sql`
-        SELECT status FROM email_campaigns WHERE id = ${campaignId}
+        SELECT * FROM email_campaigns WHERE id = ${campaignId}
       `
       if (currentCampaign.length === 0) return
-      if (currentCampaign[0].status === 'paused' || currentCampaign[0].status === 'cancelled') {
+      const camp = currentCampaign[0]
+      if (camp.status === 'paused' || camp.status === 'cancelled') {
         break
+      }
+
+      // Check daily cap
+      const capReached = await checkDailyCap(sql, campaignId, camp)
+      if (capReached) {
+        console.log(`Daily cap reached for campaign ${campaignId}. Pausing until tomorrow.`)
+        // Wait until next business hours or just 1 hour and check again
+        if (camp.business_hours_only) {
+          const waitMs = msUntilNextBusinessHours(camp)
+          await new Promise(resolve => setTimeout(resolve, Math.min(waitMs, 3600000))) // Max 1 hour check
+        } else {
+          await new Promise(resolve => setTimeout(resolve, 3600000)) // Check again in 1 hour
+        }
+        i-- // Retry this recipient
+        continue
+      }
+
+      // Check business hours
+      if (camp.business_hours_only && !isWithinBusinessHours(camp)) {
+        const waitMs = msUntilNextBusinessHours(camp)
+        console.log(`Outside business hours for campaign ${campaignId}. Waiting ${Math.round(waitMs / 60000)} minutes.`)
+        await new Promise(resolve => setTimeout(resolve, waitMs))
+        i-- // Retry this recipient
+        continue
       }
 
       const recipient = recipients[i]
@@ -229,12 +350,13 @@ async function processScheduledCampaign(campaignId: number, userId: number) {
       try {
         const personalizedSubject = personalizeText(campaign.subject, recipient)
         const personalizedBody = personalizeText(campaign.body, recipient)
+        const bodyWithSignature = appendSignature(personalizedBody, campaign.signature, config.signature || null)
 
         const result = await sendEmail(
           config,
           recipient.email,
           personalizedSubject,
-          personalizedBody,
+          bodyWithSignature,
           undefined,
           undefined,
           senderEmail
@@ -277,6 +399,15 @@ async function processScheduledCampaign(campaignId: number, userId: number) {
         `
 
         sentCount++
+        
+        // Update today's sent count for daily cap tracking
+        if (camp.daily_cap && camp.daily_cap > 0) {
+          await sql`
+            UPDATE email_campaigns
+            SET today_sent_count = today_sent_count + 1
+            WHERE id = ${campaignId}
+          `
+        }
       } catch (error: any) {
         console.error(`Failed to send to ${recipient.email}:`, error)
         await sql`
@@ -294,9 +425,10 @@ async function processScheduledCampaign(campaignId: number, userId: number) {
         WHERE id = ${campaignId}
       `
 
-      // Wait for gap if not the last email
-      if (i < recipients.length - 1 && campaign.gap_minutes > 0) {
-        await new Promise(resolve => setTimeout(resolve, campaign.gap_minutes * 60 * 1000))
+      // Wait for calculated delay if not the last email
+      if (i < recipients.length - 1) {
+        const delayMs = calculateDelay(camp)
+        await new Promise(resolve => setTimeout(resolve, delayMs))
       }
     }
 

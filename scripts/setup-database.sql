@@ -11,6 +11,17 @@ CREATE TABLE IF NOT EXISTS users (
   updated_at TIMESTAMP DEFAULT NOW()
 );
 
+-- Lead groups for organizing leads
+CREATE TABLE IF NOT EXISTS lead_groups (
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  name VARCHAR(255) NOT NULL,
+  description TEXT,
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW(),
+  UNIQUE(user_id, name)
+);
+
 -- Create the leads table with user_id foreign key
 CREATE TABLE IF NOT EXISTS leads (
   id SERIAL PRIMARY KEY,
@@ -20,6 +31,7 @@ CREATE TABLE IF NOT EXISTS leads (
   email VARCHAR(255) NOT NULL,
   company_name VARCHAR(255),
   website VARCHAR(500),
+  group_id INTEGER REFERENCES lead_groups(id) ON DELETE SET NULL,
   status VARCHAR(20) DEFAULT 'cold' CHECK (status IN ('cold', 'contacted', 'replied', 'converted', 'dead')),
   current_layer VARCHAR(10) DEFAULT 'L1' CHECK (current_layer IN ('L1', 'L2', 'L3', 'L4', 'L5+')),
   priority VARCHAR(10) DEFAULT NULL CHECK (priority IN ('high', 'medium', 'low')),
@@ -75,13 +87,21 @@ CREATE TABLE IF NOT EXISTS email_campaigns (
   name VARCHAR(255) NOT NULL,
   subject VARCHAR(500) NOT NULL,
   body TEXT NOT NULL,
-  status VARCHAR(20) DEFAULT 'draft' CHECK (status IN ('draft', 'scheduled', 'sending', 'completed', 'paused', 'cancelled')),
-  send_type VARCHAR(20) DEFAULT 'instant' CHECK (send_type IN ('instant', 'scheduled', 'random_gap')),
+  status VARCHAR(20) DEFAULT 'draft' CHECK (status IN ('draft', 'scheduled', 'sending', 'completed', 'paused', 'cancelled', 'failed')),
+  send_type VARCHAR(20) DEFAULT 'instant' CHECK (send_type IN ('instant', 'scheduled', 'smart_spacing')),
   scheduled_at TIMESTAMP,
   gap_minutes INTEGER DEFAULT 3,
+  gap_min_max INTEGER DEFAULT 0,
+  business_hours_only BOOLEAN DEFAULT false,
+  daily_cap INTEGER DEFAULT 0,
+  business_hours_start TIME DEFAULT '09:00',
+  business_hours_end TIME DEFAULT '18:00',
+  last_sent_date DATE,
+  today_sent_count INTEGER DEFAULT 0,
   total_recipients INTEGER DEFAULT 0,
   sent_count INTEGER DEFAULT 0,
   failed_count INTEGER DEFAULT 0,
+  signature TEXT DEFAULT '',
   created_at TIMESTAMP DEFAULT NOW(),
   updated_at TIMESTAMP DEFAULT NOW()
 );
@@ -117,6 +137,8 @@ CREATE INDEX IF NOT EXISTS idx_email_campaigns_status ON email_campaigns(status)
 CREATE INDEX IF NOT EXISTS idx_campaign_recipients_campaign_id ON campaign_recipients(campaign_id);
 CREATE INDEX IF NOT EXISTS idx_campaign_recipients_status ON campaign_recipients(status);
 CREATE INDEX IF NOT EXISTS idx_import_columns_user_id ON import_columns(user_id);
+CREATE INDEX IF NOT EXISTS idx_lead_groups_user_id ON lead_groups(user_id);
+CREATE INDEX IF NOT EXISTS idx_leads_group_id ON leads(group_id);
 
 -- Function to auto-update updated_at timestamp
 CREATE OR REPLACE FUNCTION update_updated_at_column()
@@ -152,6 +174,13 @@ CREATE TRIGGER update_email_templates_updated_at
 DROP TRIGGER IF EXISTS update_email_campaigns_updated_at ON email_campaigns;
 CREATE TRIGGER update_email_campaigns_updated_at
     BEFORE UPDATE ON email_campaigns
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
+
+-- Trigger to auto-update updated_at for lead_groups
+DROP TRIGGER IF EXISTS update_lead_groups_updated_at ON lead_groups;
+CREATE TRIGGER update_lead_groups_updated_at
+    BEFORE UPDATE ON lead_groups
     FOR EACH ROW
     EXECUTE FUNCTION update_updated_at_column();
 
