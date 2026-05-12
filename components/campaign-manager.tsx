@@ -301,6 +301,7 @@ export function CampaignManager() {
       completed: { label: 'Completed', color: 'bg-emerald-500/10 text-emerald-400' },
       paused: { label: 'Paused', color: 'bg-yellow-500/10 text-yellow-400' },
       cancelled: { label: 'Cancelled', color: 'bg-red-500/10 text-red-400' },
+      failed: { label: 'Failed', color: 'bg-red-500/20 text-red-500' },
     }
     const c = config[status] || { label: status, color: 'bg-gray-500/10 text-gray-400' }
     return <Badge className={`${c.color} border-0`}>{c.label}</Badge>
@@ -482,6 +483,7 @@ export function CampaignManager() {
                 onChange={setBody}
                 placeholder="Write your email... Use {{first_name}}, {{company}}, etc."
                 minHeight="200px"
+                showPersonalization={true}
               />
             </div>
 

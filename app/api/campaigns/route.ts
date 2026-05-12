@@ -101,7 +101,7 @@ export async function PUT(request: Request) {
       return NextResponse.json({ error: 'Campaign ID and status are required' }, { status: 400 })
     }
 
-    const validStatuses = ['draft', 'scheduled', 'sending', 'completed', 'paused', 'cancelled']
+    const validStatuses = ['draft', 'scheduled', 'sending', 'completed', 'paused', 'cancelled', 'failed']
     if (!validStatuses.includes(status)) {
       return NextResponse.json({ error: 'Invalid status' }, { status: 400 })
     }

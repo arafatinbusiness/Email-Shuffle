@@ -15,21 +15,60 @@ import {
   Heading1,
   Heading2,
   Heading3,
+  Variable,
+  User,
+  Building2,
+  Mail,
+  ChevronDown,
+  ChevronRight,
 } from 'lucide-react'
+import { useState, useEffect } from 'react'
 
 interface RichTextEditorProps {
   content: string
   onChange: (html: string) => void
   placeholder?: string
   minHeight?: string
+  showPersonalization?: boolean
 }
+
+// Default personalization tokens always available
+const DEFAULT_TOKENS = [
+  { label: 'First Name', token: '{{first_name}}', icon: 'User' },
+  { label: 'Last Name', token: '{{last_name}}', icon: 'User' },
+  { label: 'Full Name', token: '{{full_name}}', icon: 'User' },
+  { label: 'Email', token: '{{email}}', icon: 'Mail' },
+  { label: 'Company', token: '{{company}}', icon: 'Building2' },
+]
 
 export function RichTextEditor({
   content,
   onChange,
   placeholder = 'Write your email here...',
   minHeight = '200px',
+  showPersonalization = false,
 }: RichTextEditorProps) {
+  const [customTokens, setCustomTokens] = useState<{ label: string; token: string }[]>([])
+  const [showTokens, setShowTokens] = useState(false)
+
+  // Fetch custom import columns for personalization
+  useEffect(() => {
+    if (showPersonalization) {
+      fetch('/api/import-columns')
+        .then(res => res.ok ? res.json() : [])
+        .then((columns: string[]) => {
+          const tokens = columns
+            .filter(col => !['first_name', 'last_name', 'email', 'company_name'].includes(col.toLowerCase().replace(/\s+/g, '_')))
+            .map(col => ({
+              label: col.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
+              token: `{{${col.toLowerCase().replace(/\s+/g, '_')}}}`,
+            }))
+          setCustomTokens(tokens)
+        })
+        .catch(() => {})
+    }
+  }, [showPersonalization])
+
   const editor = useEditor({
     immediatelyRender: false,
     extensions: [
@@ -56,6 +95,11 @@ export function RichTextEditor({
 
   if (!editor) return null
 
+  const insertToken = (token: string) => {
+    editor.chain().focus().insertContent(token).run()
+    setShowTokens(false)
+  }
+
   const ToolbarButton = ({
     onClick,
     isActive,
@@ -78,6 +122,8 @@ export function RichTextEditor({
       {children}
     </Button>
   )
+
+  const allTokens = [...DEFAULT_TOKENS, ...customTokens]
 
   return (
     <div className="border rounded-md overflow-hidden">
@@ -141,6 +187,94 @@ export function RichTextEditor({
           <Quote className="h-4 w-4" />
         </ToolbarButton>
         <div className="flex-1" />
+
+        {/* Personalization dropdown - HubSpot style */}
+        {showPersonalization && (
+          <div className="relative">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowTokens(!showTokens)}
+              className="h-8 px-2 text-xs font-medium text-primary hover:text-primary"
+              title="Insert personalization token"
+            >
+              <Variable className="h-4 w-4 mr-1" />
+              Personalize
+              {showTokens ? (
+                <ChevronDown className="h-3 w-3 ml-1" />
+              ) : (
+                <ChevronRight className="h-3 w-3 ml-1" />
+              )}
+            </Button>
+
+            {showTokens && (
+              <div className="absolute right-0 top-full mt-1 z-50 w-64 bg-popover border rounded-md shadow-lg max-h-80 overflow-y-auto">
+                <div className="p-2 border-b">
+                  <p className="text-xs font-medium text-muted-foreground">Insert personalization token</p>
+                </div>
+
+                {/* Default tokens */}
+                <div className="p-1">
+                  <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-2 py-1">
+                    Standard Fields
+                  </p>
+                  {DEFAULT_TOKENS.map((t, i) => (
+                    <button
+                      key={i}
+                      type="button"
+                      className="w-full text-left px-2 py-1.5 text-sm hover:bg-accent rounded flex items-center gap-2 group"
+                      onClick={() => insertToken(t.token)}
+                    >
+                      {t.icon === 'User' ? (
+                        <User className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                      ) : t.icon === 'Building2' ? (
+                        <Building2 className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                      ) : (
+                        <Mail className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                      )}
+                      <span className="flex-1">{t.label}</span>
+                      <code className="text-[10px] text-muted-foreground bg-muted px-1 rounded group-hover:bg-background">
+                        {t.token}
+                      </code>
+                    </button>
+                  ))}
+                </div>
+
+                {/* Custom tokens from import columns */}
+                {customTokens.length > 0 && (
+                  <div className="p-1 border-t">
+                    <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-2 py-1">
+                      Custom Fields (from imports)
+                    </p>
+                    {customTokens.map((t, i) => (
+                      <button
+                        key={i}
+                        type="button"
+                        className="w-full text-left px-2 py-1.5 text-sm hover:bg-accent rounded flex items-center gap-2 group"
+                        onClick={() => insertToken(t.token)}
+                      >
+                        <Variable className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                        <span className="flex-1">{t.label}</span>
+                        <code className="text-[10px] text-muted-foreground bg-muted px-1 rounded group-hover:bg-background">
+                          {t.token}
+                        </code>
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {/* Preview hint */}
+                <div className="p-2 border-t bg-muted/30">
+                  <p className="text-[10px] text-muted-foreground">
+                    Tokens will be replaced with actual data when sending.
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
         <ToolbarButton
           onClick={() => editor.chain().focus().undo().run()}
           isActive={false}
