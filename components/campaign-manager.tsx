@@ -130,6 +130,13 @@ export function CampaignManager() {
     return <Badge className={`${c.color} border-0`}>{c.label}</Badge>
   }
 
+  // Helper to parse a UTC timestamp string and format it in the user's local timezone
+  const formatUtcDate = (dateStr: string) => {
+    // Append 'Z' to ensure it's treated as UTC regardless of whether the DB returned it with timezone
+    const utcStr = dateStr.includes('Z') || dateStr.includes('+') ? dateStr : dateStr + 'Z'
+    return new Date(utcStr).toLocaleString()
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -305,12 +312,12 @@ export function CampaignManager() {
                 {showDetailDialog.scheduled_at && (
                   <div>
                     <p className="text-xs text-muted-foreground">Scheduled</p>
-                    <p className="text-sm">{new Date(showDetailDialog.scheduled_at).toLocaleString()}</p>
+                    <p className="text-sm">{formatUtcDate(showDetailDialog.scheduled_at)}</p>
                   </div>
                 )}
                 <div>
                   <p className="text-xs text-muted-foreground">Created</p>
-                  <p className="text-sm">{new Date(showDetailDialog.created_at).toLocaleString()}</p>
+                  <p className="text-sm">{formatUtcDate(showDetailDialog.created_at)}</p>
                 </div>
               </div>
 
