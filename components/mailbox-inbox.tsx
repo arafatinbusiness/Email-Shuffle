@@ -82,6 +82,9 @@ export function MailboxInbox({ onOpenSettings }: MailboxInboxProps) {
   const [composeSubject, setComposeSubject] = useState('')
   const [composeBody, setComposeBody] = useState('')
   const [composeSending, setComposeSending] = useState(false)
+  const [accountEmail, setAccountEmail] = useState('')
+  const [accountAlias, setAccountAlias] = useState('')
+  const [composeFrom, setComposeFrom] = useState('')
 
   const fetchThreads = useCallback(async (unreadOnly = false) => {
     setLoading(true)
@@ -283,7 +286,23 @@ export function MailboxInbox({ onOpenSettings }: MailboxInboxProps) {
             <RefreshCw className="h-4 w-4 mr-2" />
             Sync
           </Button>
-          <Button variant="default" size="sm" onClick={() => setShowCompose(true)}>
+          <Button variant="default" size="sm" onClick={async () => {
+            // Fetch account info to get alias options
+            try {
+              const res = await fetch('/api/mailbox/account')
+              if (res.ok) {
+                const data = await res.json()
+                if (data) {
+                  setAccountEmail(data.email)
+                  setAccountAlias(data.send_as || '')
+                  setComposeFrom(data.send_as || data.email)
+                }
+              }
+            } catch {
+              // Silently fail
+            }
+            setShowCompose(true)
+          }}>
             <Plus className="h-4 w-4 mr-2" />
             Compose
           </Button>
@@ -516,6 +535,21 @@ export function MailboxInbox({ onOpenSettings }: MailboxInboxProps) {
             </CardHeader>
             <CardContent className="space-y-3">
               <div className="space-y-1">
+                <label className="text-xs text-muted-foreground font-medium">From</label>
+                <select
+                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                  value={composeFrom}
+                  onChange={(e) => setComposeFrom(e.target.value)}
+                >
+                  {accountEmail && (
+                    <option value={accountEmail}>{accountEmail} (Main)</option>
+                  )}
+                  {accountAlias && (
+                    <option value={accountAlias}>{accountAlias} (Alias)</option>
+                  )}
+                </select>
+              </div>
+              <div className="space-y-1">
                 <label className="text-xs text-muted-foreground font-medium">To</label>
                 <Input
                   value={composeTo}
@@ -565,6 +599,7 @@ export function MailboxInbox({ onOpenSettings }: MailboxInboxProps) {
                           to: composeTo,
                           subject: composeSubject,
                           body: composeBody,
+                          send_as: composeFrom !== accountEmail ? composeFrom : undefined,
                         }),
                       })
                       if (!res.ok) throw new Error('Failed to send')

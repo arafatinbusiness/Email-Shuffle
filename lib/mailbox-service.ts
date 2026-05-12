@@ -28,7 +28,8 @@ export async function sendEmail(
   subject: string,
   body: string,
   inReplyTo?: string,
-  references?: string
+  references?: string,
+  fromOverride?: string
 ): Promise<{ messageId: string; accepted: string[] }> {
   const transporter = nodemailer.createTransport({
     host: config.smtp_host,
@@ -47,8 +48,8 @@ export async function sendEmail(
     headers['References'] = references || inReplyTo
   }
 
-  // Use send_as alias if configured, otherwise use the account email
-  const fromAddress = config.send_as || config.email
+  // Use fromOverride if provided, otherwise send_as alias, otherwise account email
+  const fromAddress = fromOverride || config.send_as || config.email
 
   const info = await transporter.sendMail({
     from: fromAddress,

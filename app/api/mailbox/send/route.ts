@@ -13,7 +13,7 @@ export async function POST(request: Request) {
   try {
     const userId = parseInt(session.user.id)
     const body = await request.json()
-    const { to, subject, body: emailBody, thread_id, in_reply_to, references, lead_id } = body
+    const { to, subject, body: emailBody, thread_id, in_reply_to, references, lead_id, send_as } = body
 
     if (!to || !subject || !emailBody) {
       return NextResponse.json({ error: 'Missing required fields: to, subject, body' }, { status: 400 })
@@ -25,8 +25,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'No mailbox configured. Please set up your email account first.' }, { status: 400 })
     }
 
+    // Determine sender email: request send_as > config send_as > config email
+    const senderEmail = send_as || config.send_as || config.email
+
     // Send via SMTP
-    const result = await sendEmail(config, to, subject, emailBody, in_reply_to, references)
+    const result = await sendEmail(config, to, subject, emailBody, in_reply_to, references, senderEmail)
 
     // Find or create thread
     const threadId = thread_id || await findOrCreateThread(
@@ -36,9 +39,6 @@ export async function POST(request: Request) {
       in_reply_to || null,
       references || null
     )
-
-    // Use send_as alias as the sender if configured
-    const senderEmail = config.send_as || config.email
 
     // Save to database
     await saveEmailToDb(
