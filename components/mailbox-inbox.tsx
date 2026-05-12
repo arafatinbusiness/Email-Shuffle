@@ -116,8 +116,14 @@ export function MailboxInbox({ onOpenSettings }: MailboxInboxProps) {
 
   // Helper to extract email address from "Name <email>" format
   const extractEmail = (raw: string): string => {
+    if (!raw) return ''
+    // Try to extract from "Name" <email> format
     const match = raw.match(/<([^>]+)>/)
-    return match ? match[1] : raw.trim()
+    if (match) return match[1].trim()
+    // If it's already just an email, return as-is
+    if (raw.includes('@')) return raw.trim()
+    // Fallback: return raw trimmed
+    return raw.trim()
   }
 
   const handleSendReply = async () => {
