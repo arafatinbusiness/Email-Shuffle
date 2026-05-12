@@ -139,12 +139,13 @@ export async function syncInbox(
         // Limit stripped HTML to 500 chars to avoid huge bodies
         if (body.length > 500) body = body.substring(0, 500) + '...'
       }
-      // Extract sender name and email properly
+      // Extract sender as "Name <email>" format for proper reply routing
       const senderRaw = parsed.from ? parsed.from.text : config.email
-      const senderName = parsed.from && parsed.from.value && parsed.from.value[0] 
-        ? (parsed.from.value[0].name || parsed.from.value[0].address || senderRaw)
+      const sender = parsed.from && parsed.from.value && parsed.from.value[0]
+        ? (parsed.from.value[0].name 
+          ? `${parsed.from.value[0].name} <${parsed.from.value[0].address}>`
+          : parsed.from.value[0].address || senderRaw)
         : senderRaw
-      const sender = senderName
       const recipient = parsed.to ? parsed.to.text : config.email
       const sentAt = parsed.date || new Date()
       const isRead = msg.flags ? msg.flags.has('\\Seen') : false
