@@ -59,10 +59,76 @@ export async function sendEmail(
     headers,
   })
 
+  const messageId = info.messageId || `<${Date.now()}-${Math.random().toString(36).substr(2, 9)}@${config.email.split('@')[1] || 'local'}>`
+
+  // Save a copy to the IMAP Sent folder so it appears in the email provider's webmail
+  try {
+    const client = new ImapFlow({
+      host: config.imap_host,
+      port: config.imap_port,
+      secure: config.imap_port === 993,
+      auth: {
+        user: config.email,
+        pass: config.password,
+      },
+      logger: false,
+    })
+    await client.connect()
+
+    // Build the raw email to append to Sent folder
+    const rawEmail = buildSentEmail(fromAddress, to, subject, body, messageId, inReplyTo, references)
+
+    // Try common Sent folder names
+    const sentFolderNames = ['Sent', 'Sent Messages', 'Sent Items', 'INBOX.Sent', '[Gmail]/Sent Mail']
+    let sentOpened = false
+    for (const folderName of sentFolderNames) {
+      try {
+        await client.mailboxOpen(folderName)
+        sentOpened = true
+        break
+      } catch {
+        continue
+      }
+    }
+
+    if (sentOpened) {
+      // @ts-expect-error - imapflow types are incorrect for append signature
+      await client.append(rawEmail, ['\\Seen', '\\Sent'], new Date())
+    } else {
+      console.warn('Could not find Sent folder to save copy')
+    }
+    await client.logout()
+  } catch (err) {
+    // Non-critical: log but don't fail the send
+    console.error('Failed to save copy to Sent folder:', err)
+  }
+
   return {
-    messageId: info.messageId || `<${Date.now()}-${Math.random().toString(36).substr(2, 9)}@${config.email.split('@')[1] || 'local'}>`,
+    messageId,
     accepted: Array.isArray(info.accepted) ? info.accepted.map(a => String(a)) : [],
   }
+}
+
+// Build a raw RFC 2822 email for appending to the Sent folder
+function buildSentEmail(
+  from: string,
+  to: string,
+  subject: string,
+  body: string,
+  messageId: string,
+  inReplyTo?: string,
+  references?: string
+): string {
+  const date = new Date().toUTCString()
+  let raw = `Date: ${date}\r\nFrom: ${from}\r\nTo: ${to}\r\nSubject: ${subject}\r\nMessage-ID: ${messageId}\r\nMIME-Version: 1.0\r\nContent-Type: text/plain; charset="UTF-8"\r\nContent-Transfer-Encoding: 7bit\r\n`
+
+  if (inReplyTo) {
+    raw += `In-Reply-To: ${inReplyTo}\r\n`
+    raw += `References: ${references || inReplyTo}\r\n`
+  }
+
+  raw += '\r\n' + body
+  return raw
 }
 
 // ============================================================
