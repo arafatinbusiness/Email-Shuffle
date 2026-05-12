@@ -1,0 +1,110 @@
+import { NextResponse } from 'next/server'
+import { auth } from '@/lib/auth'
+import { getMailboxConfig, syncInbox, findOrCreateThread, saveEmailToDb, updateLeadOnReply } from '@/lib/mailbox-service'
+import { getDb } from '@/lib/db'
+
+// POST /api/mailbox/sync - Trigger IMAP inbox sync
+export async function POST() {
+  const session = await auth()
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
+  try {
+    const userId = parseInt(session.user.id)
+    const sql = getDb()
+
+    // Get mailbox config
+    const config = await getMailboxConfig(userId)
+    if (!config) {
+      return NextResponse.json({ error: 'No mailbox configured' }, { status: 400 })
+    }
+
+    // Get last synced UID
+    const account = await sql`
+      SELECT last_sync_at FROM mailbox_accounts WHERE user_id = ${userId}
+    `
+    
+    // Get the highest UID we've seen for this user
+    const lastUidResult = await sql`
+      SELECT MAX(CAST(SUBSTRING(message_id FROM 'uid-([0-9]+)') AS INTEGER)) as last_uid
+      FROM email_messages
+      WHERE user_id = ${userId} AND direction = 'incoming'
+    `
+    const lastUid = lastUidResult[0]?.last_uid || 0
+
+    // Sync inbox
+    const { emails, lastUid: newLastUid } = await syncInbox(config, lastUid)
+
+    let synced = 0
+    let replies = 0
+
+    for (const email of emails) {
+      // Find which lead this email belongs to by matching sender email
+      const senderEmail = email.sender.match(/<([^>]+)>/) 
+        ? email.sender.match(/<([^>]+)>/)![1]
+        : email.sender
+
+      const lead = await sql`
+        SELECT id FROM leads
+        WHERE (email = ${senderEmail} OR email ILIKE ${'%' + senderEmail + '%'})
+        AND user_id = ${userId}
+        LIMIT 1
+      `
+      const leadId = lead.length > 0 ? lead[0].id : null
+
+      // Find or create thread
+      const threadId = await findOrCreateThread(
+        userId,
+        email.subject,
+        leadId,
+        email.inReplyTo,
+        email.references
+      )
+
+      // Save email to database
+      const savedId = await saveEmailToDb(
+        userId,
+        threadId,
+        'incoming',
+        email.subject,
+        email.body,
+        email.bodyHtml,
+        email.sender,
+        config.email,
+        email.messageId,
+        email.inReplyTo,
+        email.references,
+        email.isRead,
+        email.sentAt,
+        'synced'
+      )
+
+      if (savedId) {
+        synced++
+        // If this is a reply from a lead, update their status
+        if (leadId) {
+          await updateLeadOnReply(leadId)
+          replies++
+        }
+      }
+    }
+
+    // Update last sync timestamp
+    await sql`
+      UPDATE mailbox_accounts SET last_sync_at = NOW() WHERE user_id = ${userId}
+    `
+
+    return NextResponse.json({
+      success: true,
+      synced,
+      replies,
+      lastUid: newLastUid,
+    })
+  } catch (error) {
+    console.error('Failed to sync inbox:', error)
+    return NextResponse.json({
+      error: error instanceof Error ? error.message : 'Failed to sync inbox'
+    }, { status: 500 })
+  }
+}

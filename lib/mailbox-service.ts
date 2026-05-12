@@ -1,0 +1,299 @@
+// Mailbox service - SMTP sending and IMAP sync
+// Uses nodemailer for SMTP and imapflow for IMAP
+// This runs server-side only (API routes)
+
+import nodemailer from 'nodemailer'
+import { ImapFlow, SearchObject } from 'imapflow'
+import { simpleParser } from 'mailparser'
+import { decryptPassword } from './mailbox-crypto'
+import { getDb } from './db'
+
+interface MailboxConfig {
+  email: string
+  imap_host: string
+  imap_port: number
+  smtp_host: string
+  smtp_port: number
+  password: string
+}
+
+// ============================================================
+// SMTP SENDING
+// ============================================================
+
+export async function sendEmail(
+  config: MailboxConfig,
+  to: string,
+  subject: string,
+  body: string,
+  inReplyTo?: string,
+  references?: string
+): Promise<{ messageId: string; accepted: string[] }> {
+  const transporter = nodemailer.createTransport({
+    host: config.smtp_host,
+    port: config.smtp_port,
+    secure: config.smtp_port === 465,
+    auth: {
+      user: config.email,
+      pass: config.password,
+    },
+  })
+
+  const headers: Record<string, string> = {}
+
+  if (inReplyTo) {
+    headers['In-Reply-To'] = inReplyTo
+    headers['References'] = references || inReplyTo
+  }
+
+  const info = await transporter.sendMail({
+    from: config.email,
+    to,
+    subject,
+    text: body,
+    headers,
+  })
+
+  return {
+    messageId: info.messageId || `<${Date.now()}-${Math.random().toString(36).substr(2, 9)}@${config.email.split('@')[1] || 'local'}>`,
+    accepted: Array.isArray(info.accepted) ? info.accepted.map(a => String(a)) : [],
+  }
+}
+
+// ============================================================
+// IMAP SYNC
+// ============================================================
+
+export interface SyncedEmail {
+  messageId: string
+  inReplyTo: string | null
+  references: string | null
+  subject: string
+  body: string
+  bodyHtml: string | null
+  sender: string
+  recipient: string
+  sentAt: Date
+  isRead: boolean
+  uid: number
+}
+
+export async function syncInbox(
+  config: MailboxConfig,
+  sinceUid?: number
+): Promise<{ emails: SyncedEmail[]; lastUid: number }> {
+  const client = new ImapFlow({
+    host: config.imap_host,
+    port: config.imap_port,
+    secure: config.imap_port === 993,
+    auth: {
+      user: config.email,
+      pass: config.password,
+    },
+    logger: false,
+  })
+
+  await client.connect()
+
+  try {
+    await client.mailboxOpen('INBOX')
+    let lastUid = sinceUid || 0
+
+    const messages: SyncedEmail[] = []
+    
+    // Build search criteria
+    const searchCriteria: SearchObject = sinceUid && sinceUid > 0
+      ? { uid: { gt: sinceUid } as any }
+      : { seen: false }
+    
+    for await (const msg of client.fetch(searchCriteria, {
+      uid: true,
+      envelope: true,
+      bodyStructure: true,
+      source: true,
+      flags: true,
+      internalDate: true,
+    })) {
+      const uid = msg.uid
+      if (uid > lastUid) lastUid = uid
+
+      const source = msg.source
+      if (!source) continue
+
+      const parsed = await simpleParser(source)
+      
+      const messageId = parsed.messageId || `<${uid}-${Date.now()}@local>`
+      const inReplyTo = parsed.inReplyTo || null
+      const references = parsed.references || null
+      const subject = parsed.subject || '(No Subject)'
+      const body = parsed.text || ''
+      const bodyHtml = parsed.html || null
+      const sender = parsed.from ? parsed.from.text : config.email
+      const recipient = parsed.to ? parsed.to.text : config.email
+      const sentAt = parsed.date || new Date()
+      const isRead = msg.flags ? msg.flags.has('\\Seen') : false
+
+      messages.push({
+        messageId,
+        inReplyTo,
+        references,
+        subject,
+        body,
+        bodyHtml,
+        sender,
+        recipient,
+        sentAt,
+        isRead,
+        uid,
+      })
+    }
+
+    return { emails: messages, lastUid }
+  } finally {
+    await client.logout()
+  }
+}
+
+// ============================================================
+// THREAD MANAGEMENT
+// ============================================================
+
+export async function findOrCreateThread(
+  userId: number,
+  subject: string,
+  leadId: number | null,
+  inReplyTo: string | null,
+  references: string | null
+): Promise<number> {
+  const sql = getDb()
+
+  // Try to find existing thread by in-reply-to chain
+  if (inReplyTo) {
+    const existing = await sql`
+      SELECT em.thread_id FROM email_messages em
+      WHERE em.message_id = ${inReplyTo}
+      AND em.user_id = ${userId}
+      LIMIT 1
+    `
+    if (existing.length > 0) {
+      return existing[0].thread_id
+    }
+  }
+
+  // Try to find thread by subject (normalized) and lead
+  if (leadId) {
+    const normalizedSubject = subject.replace(/^(Re:\s*|Fwd:\s*|Aw:\s*)/i, '').trim()
+    const existingThread = await sql`
+      SELECT id FROM email_threads
+      WHERE lead_id = ${leadId}
+      AND user_id = ${userId}
+      AND subject ILIKE ${'%' + normalizedSubject + '%'}
+      ORDER BY last_message_at DESC
+      LIMIT 1
+    `
+    if (existingThread.length > 0) {
+      return existingThread[0].id
+    }
+  }
+
+  // Create new thread
+  const result = await sql`
+    INSERT INTO email_threads (lead_id, user_id, subject, last_message_at)
+    VALUES (${leadId}, ${userId}, ${subject}, NOW())
+    RETURNING id
+  `
+  return result[0].id
+}
+
+// ============================================================
+// SAVE EMAIL TO DATABASE
+// ============================================================
+
+export async function saveEmailToDb(
+  userId: number,
+  threadId: number,
+  direction: 'incoming' | 'outgoing',
+  subject: string,
+  body: string,
+  bodyHtml: string | null,
+  sender: string,
+  recipient: string,
+  messageId: string,
+  inReplyTo: string | null,
+  references: string | null,
+  isRead: boolean,
+  sentAt: Date,
+  syncState: 'synced' | 'pending' | 'failed' = 'synced'
+): Promise<number> {
+  const sql = getDb()
+
+  // Check for duplicate by message_id
+  const existing = await sql`
+    SELECT id FROM email_messages
+    WHERE message_id = ${messageId} AND user_id = ${userId}
+    LIMIT 1
+  `
+  if (existing.length > 0) {
+    return existing[0].id
+  }
+
+  const result = await sql`
+    INSERT INTO email_messages (
+      thread_id, user_id, direction, subject, body, body_html,
+      sender, recipient, message_id, in_reply_to, refs,
+      is_read, sent_at, sync_state
+    ) VALUES (
+      ${threadId}, ${userId}, ${direction}, ${subject}, ${body}, ${bodyHtml},
+      ${sender}, ${recipient}, ${messageId}, ${inReplyTo}, ${references},
+      ${isRead}, ${sentAt.toISOString()}, ${syncState}
+    )
+    RETURNING id
+  `
+
+  // Update thread's last_message_at
+  await sql`
+    UPDATE email_threads SET last_message_at = NOW()
+    WHERE id = ${threadId}
+  `
+
+  return result[0].id
+}
+
+// ============================================================
+// GET MAILBOX ACCOUNT FOR USER
+// ============================================================
+
+export async function getMailboxConfig(userId: number): Promise<MailboxConfig | null> {
+  const sql = getDb()
+  const accounts = await sql`
+    SELECT * FROM mailbox_accounts
+    WHERE user_id = ${userId} AND sync_enabled = true
+    LIMIT 1
+  `
+  if (accounts.length === 0) return null
+
+  const account = accounts[0]
+  const password = decryptPassword(account.encrypted_password)
+
+  return {
+    email: account.email,
+    imap_host: account.imap_host,
+    imap_port: account.imap_port,
+    smtp_host: account.smtp_host,
+    smtp_port: account.smtp_port,
+    password,
+  }
+}
+
+// ============================================================
+// UPDATE LEAD STATUS ON REPLY
+// ============================================================
+
+export async function updateLeadOnReply(leadId: number): Promise<void> {
+  const sql = getDb()
+  await sql`
+    UPDATE leads
+    SET status = 'replied', updated_at = NOW()
+    WHERE id = ${leadId} AND status != 'converted' AND status != 'dead'
+  `
+}

@@ -12,6 +12,8 @@ import { LeadDetail } from './lead-detail'
 import { ActionCenter } from './action-center'
 import { PipelineView } from './pipeline-view'
 import { CustomerUpdates } from './customer-updates'
+import { MailboxInbox } from './mailbox-inbox'
+import { MailboxSettings } from './mailbox-settings'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
@@ -43,7 +45,8 @@ import {
   Users,
   LogOut,
   User,
-  Handshake
+  Handshake,
+  Mail
 } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -358,6 +361,10 @@ export function Dashboard() {
               <Handshake className="h-4 w-4" />
               Customers ({customers.length})
             </TabsTrigger>
+            <TabsTrigger value="mailbox" className="gap-2">
+              <Mail className="h-4 w-4" />
+              Mailbox
+            </TabsTrigger>
           </TabsList>
 
           {/* TODAY'S ACTIONS - Main Feature */}
@@ -451,6 +458,11 @@ export function Dashboard() {
               onUpdateCustomer={handleUpdateLead}
               onDeleteCustomer={handleDeleteLead}
             />
+          </TabsContent>
+
+          {/* MAILBOX TAB */}
+          <TabsContent value="mailbox" className="space-y-6">
+            <MailboxInbox />
           </TabsContent>
         </Tabs>
       </main>
