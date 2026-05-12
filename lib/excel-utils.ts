@@ -1,4 +1,5 @@
 import { Lead, LeadStatus, LeadLayer, LeadPriority, LeadIntent } from './types'
+import * as XLSX from 'xlsx'
 
 // Export leads to CSV format (Excel compatible)
 export function exportToCSV(leads: Lead[]): string {
@@ -133,6 +134,94 @@ export function parseCSV(content: string): Partial<Lead>[] {
           break
       }
     })
+
+    // Only add if we have required fields
+    if (lead.first_name && lead.email) {
+      leads.push(lead)
+    }
+  }
+
+  return leads
+}
+
+// Parse XLSX file content to lead data
+export function parseXLSX(data: ArrayBuffer): Partial<Lead>[] {
+  const workbook = XLSX.read(data, { type: 'array' })
+  const firstSheet = workbook.Sheets[workbook.SheetNames[0]]
+  const jsonData = XLSX.utils.sheet_to_json<Record<string, string>>(firstSheet, { defval: '' })
+
+  if (jsonData.length === 0) return []
+
+  const leads: Partial<Lead>[] = []
+
+  for (const row of jsonData) {
+    const lead: Partial<Lead> = {}
+
+    for (const [key, value] of Object.entries(row)) {
+      const header = key.trim().toLowerCase().replace(/\s+/g, '_')
+      const strValue = String(value).trim()
+
+      switch (header) {
+        case 'first_name':
+        case 'firstname':
+        case 'first':
+          lead.first_name = strValue
+          break
+        case 'last_name':
+        case 'lastname':
+        case 'last':
+          lead.last_name = strValue || null
+          break
+        case 'email':
+          lead.email = strValue
+          break
+        case 'company':
+        case 'company_name':
+          lead.company_name = strValue || null
+          break
+        case 'website':
+        case 'url':
+          lead.website = strValue || null
+          break
+        case 'status':
+          if (isValidStatus(strValue)) lead.status = strValue
+          break
+        case 'current_layer':
+        case 'layer':
+          if (isValidLayer(strValue)) lead.current_layer = strValue
+          break
+        case 'priority':
+          if (isValidPriority(strValue)) lead.priority = strValue
+          break
+        case 'intent':
+          if (isValidIntent(strValue)) lead.intent = strValue
+          break
+        case 'positive_points':
+        case 'positives':
+          lead.positive_points = strValue || null
+          break
+        case 'improvements':
+          lead.improvements = strValue || null
+          break
+        case 'fb_ads_notes':
+        case 'fb_notes':
+          lead.fb_ads_notes = strValue || null
+          break
+        case 'pixel_status':
+        case 'pixel':
+          lead.pixel_status = strValue || null
+          break
+        case 'custom_notes':
+        case 'notes':
+          lead.custom_notes = strValue || null
+          break
+        case 'next_follow_up':
+        case 'next_followup':
+        case 'follow_up':
+          lead.next_follow_up = strValue || null
+          break
+      }
+    }
 
     // Only add if we have required fields
     if (lead.first_name && lead.email) {

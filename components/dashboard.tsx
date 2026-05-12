@@ -5,7 +5,7 @@ import { useSession, signOut } from 'next-auth/react'
 import useSWR, { mutate } from 'swr'
 import { Lead, LeadStatus, LeadLayer } from '@/lib/types'
 import { calculateNextFollowUp, NEXT_LAYER } from '@/lib/workflow-rules'
-import { exportToCSV, parseCSV, downloadCSV } from '@/lib/excel-utils'
+import { exportToCSV, parseCSV, parseXLSX, downloadCSV } from '@/lib/excel-utils'
 import { LeadCard } from './lead-card'
 import { LeadForm } from './lead-form'
 import { LeadDetail } from './lead-detail'
@@ -166,42 +166,84 @@ export function Dashboard() {
     toast.success('Leads exported to CSV')
   }
 
-  // Excel Import
+  // Excel Import (supports .csv, .xlsx, .xls)
   const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
 
-    const reader = new FileReader()
-    reader.onload = async (event) => {
-      const content = event.target?.result as string
-      const parsedLeads = parseCSV(content)
-      
-      if (parsedLeads.length === 0) {
-        toast.error('No valid leads found in CSV')
-        return
-      }
+    const isXLSX = file.name.endsWith('.xlsx') || file.name.endsWith('.xls')
 
-      let successCount = 0
-      let errorCount = 0
-
-      for (const leadData of parsedLeads) {
+    if (isXLSX) {
+      // Read XLSX as ArrayBuffer
+      const reader = new FileReader()
+      reader.onload = async (event) => {
         try {
-          const res = await fetch('/api/leads', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(leadData),
-          })
-          if (res.ok) successCount++
-          else errorCount++
+          const data = event.target?.result as ArrayBuffer
+          const parsedLeads = parseXLSX(data)
+          
+          if (parsedLeads.length === 0) {
+            toast.error('No valid leads found in the Excel file. Make sure it has "First Name" and "Email" columns.')
+            return
+          }
+
+          let successCount = 0
+          let errorCount = 0
+
+          for (const leadData of parsedLeads) {
+            try {
+              const res = await fetch('/api/leads', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(leadData),
+              })
+              if (res.ok) successCount++
+              else errorCount++
+            } catch {
+              errorCount++
+            }
+          }
+
+          await mutate('/api/leads')
+          toast.success(`Imported ${successCount} leads from Excel${errorCount > 0 ? ` (${errorCount} failed)` : ''}`)
         } catch {
-          errorCount++
+          toast.error('Failed to parse Excel file. Make sure it\'s a valid .xlsx file.')
         }
       }
+      reader.readAsArrayBuffer(file)
+    } else {
+      // Read CSV as text
+      const reader = new FileReader()
+      reader.onload = async (event) => {
+        const content = event.target?.result as string
+        const parsedLeads = parseCSV(content)
+        
+        if (parsedLeads.length === 0) {
+          toast.error('No valid leads found in CSV. Make sure it has "First Name" and "Email" columns.')
+          return
+        }
 
-      await mutate('/api/leads')
-      toast.success(`Imported ${successCount} leads${errorCount > 0 ? ` (${errorCount} failed)` : ''}`)
+        let successCount = 0
+        let errorCount = 0
+
+        for (const leadData of parsedLeads) {
+          try {
+            const res = await fetch('/api/leads', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(leadData),
+            })
+            if (res.ok) successCount++
+            else errorCount++
+          } catch {
+            errorCount++
+          }
+        }
+
+        await mutate('/api/leads')
+        toast.success(`Imported ${successCount} leads from CSV${errorCount > 0 ? ` (${errorCount} failed)` : ''}`)
+      }
+      reader.readAsText(file)
     }
-    reader.readAsText(file)
     
     // Reset file input
     if (fileInputRef.current) fileInputRef.current.value = ''
@@ -237,7 +279,7 @@ export function Dashboard() {
               <input
                 ref={fileInputRef}
                 type="file"
-                accept=".csv"
+                accept=".csv,.xlsx,.xls"
                 onChange={handleImport}
                 className="hidden"
               />
