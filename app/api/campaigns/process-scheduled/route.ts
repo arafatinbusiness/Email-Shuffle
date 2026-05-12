@@ -62,7 +62,6 @@ export async function POST() {
         `
 
         // Send only ONE recipient per polling cycle to enforce gaps naturally
-        // The polling runs every 30s, so each cycle sends at most 1 email
         const recipient = recipients[0]
         let sentCount = 0
         let failedCount = 0
@@ -81,7 +80,6 @@ export async function POST() {
         const capReached = await checkDailyCap(sql, campaign.id, camp)
         if (capReached) {
           console.log(`Daily cap reached for campaign ${campaign.id}. Stopping for now.`)
-          // Don't mark as completed - will resume tomorrow
           continue
         }
 
@@ -89,6 +87,20 @@ export async function POST() {
         if (camp.business_hours_only && !isWithinBusinessHours(camp)) {
           console.log(`Outside business hours for campaign ${campaign.id}. Stopping for now.`)
           continue
+        }
+
+        // Enforce gap: check if enough time has passed since the last update
+        // For smart_spacing campaigns, ensure the gap has elapsed before sending next email
+        if (camp.send_type === 'smart_spacing' && camp.updated_at) {
+          const lastSentTime = new Date(camp.updated_at).getTime()
+          const now = Date.now()
+          const elapsedMs = now - lastSentTime
+          const requiredGapMs = calculateDelay(camp)
+          if (elapsedMs < requiredGapMs) {
+            // Not enough time has passed, skip this cycle
+            console.log(`Gap not yet elapsed for campaign ${campaign.id}. Elapsed: ${Math.round(elapsedMs / 1000)}s, Required: ${Math.round(requiredGapMs / 1000)}s`)
+            continue
+          }
         }
 
         try {
