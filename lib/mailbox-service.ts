@@ -82,24 +82,41 @@ export async function sendEmail(
     // Build the raw email to append to Sent folder
     const rawEmail = buildSentEmail(fromAddress, to, subject, body, messageId, inReplyTo, references)
 
-    // Try common Sent folder names
-    const sentFolderNames = ['Sent', 'Sent Messages', 'Sent Items', 'INBOX.Sent', '[Gmail]/Sent Mail']
-    let sentOpened = false
-    for (const folderName of sentFolderNames) {
-      try {
-        await client.mailboxOpen(folderName)
-        sentOpened = true
+    // First, list all folders to find the Sent folder
+    const mailboxes = await client.list()
+    const sentFolderNames = ['Sent', 'Sent Messages', 'Sent Items', 'INBOX.Sent', '[Gmail]/Sent Mail', 'Sent Mail', 'INBOX/Sent', 'INBOX.Sent Messages']
+    
+    // Try to find a Sent folder by listing all mailboxes first
+    let sentFolderPath: string | null = null
+    
+    // Check if any mailbox name contains "sent" (case-insensitive)
+    for (const mb of mailboxes) {
+      const path = mb.path
+      if (path && /sent/i.test(path) && !/trash|spam|junk|draft/i.test(path)) {
+        sentFolderPath = path
         break
-      } catch {
-        continue
       }
     }
 
-    if (sentOpened) {
-      // @ts-expect-error - imapflow types are incorrect for append signature
-      await client.append(rawEmail, ['\\Seen', '\\Sent'], new Date())
+    // If not found by listing, try common names
+    if (!sentFolderPath) {
+      for (const folderName of sentFolderNames) {
+        try {
+          await client.mailboxOpen(folderName)
+          sentFolderPath = folderName
+          break
+        } catch {
+          continue
+        }
+      }
+    }
+
+    if (sentFolderPath) {
+      // Append the email directly to the Sent folder with \Seen and \Sent flags
+      // append(path, content, flags?, date?)
+      await client.append(sentFolderPath, rawEmail, ['\\Seen', '\\Sent'], new Date())
     } else {
-      console.warn('Could not find Sent folder to save copy')
+      console.warn('Could not find Sent folder to save copy. Available folders:', mailboxes.map(m => m.path).join(', '))
     }
     await client.logout()
   } catch (err) {
