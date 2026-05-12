@@ -10,6 +10,8 @@ export default auth((req) => {
     nextUrl.pathname.startsWith('/login') ||
     nextUrl.pathname.startsWith('/signup') ||
     nextUrl.pathname.startsWith('/api/auth') ||
+    nextUrl.pathname.startsWith('/api/campaigns/process-scheduled') ||
+    nextUrl.pathname.startsWith('/api/contacts/check') ||
     nextUrl.pathname.startsWith('/_next/static') ||
     nextUrl.pathname.startsWith('/_next/image') ||
     nextUrl.pathname === '/favicon.ico' ||

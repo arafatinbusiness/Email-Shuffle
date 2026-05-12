@@ -225,7 +225,12 @@ export function CampaignManager() {
           return
         }
         // Convert local time to UTC for storage
-        const localDate = new Date(`${scheduledDate}T${scheduledTime}:00`)
+        // The user picks a time in their local timezone (e.g., GMT+6)
+        // We need to store it as UTC so the server can compare with NOW() correctly
+        const [year, month, day] = scheduledDate.split('-').map(Number)
+        const [hour, minute] = scheduledTime.split(':').map(Number)
+        // Create a date in local timezone, then convert to UTC
+        const localDate = new Date(year, month - 1, day, hour, minute, 0)
         payload.scheduled_at = localDate.toISOString()
       }
 
