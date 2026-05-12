@@ -176,14 +176,14 @@ export function LeadForm({ open, onOpenChange, lead, onSubmit }: LeadFormProps) 
             <div className="space-y-2">
               <Label htmlFor="priority">Priority</Label>
               <Select
-                value={formData.priority || ''}
-                onValueChange={(value: LeadPriority | '') => updateField('priority', value)}
+                value={formData.priority || 'none'}
+                onValueChange={(value: string) => updateField('priority', value === 'none' ? '' : value)}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Set priority..." />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">None</SelectItem>
+                  <SelectItem value="none">None</SelectItem>
                   <SelectItem value="high">🔴 High</SelectItem>
                   <SelectItem value="medium">🟡 Medium</SelectItem>
                   <SelectItem value="low">🟢 Low</SelectItem>
@@ -193,14 +193,14 @@ export function LeadForm({ open, onOpenChange, lead, onSubmit }: LeadFormProps) 
             <div className="space-y-2">
               <Label htmlFor="intent">Intent</Label>
               <Select
-                value={formData.intent || ''}
-                onValueChange={(value: LeadIntent | '') => updateField('intent', value)}
+                value={formData.intent || 'none'}
+                onValueChange={(value: string) => updateField('intent', value === 'none' ? '' : value)}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Set intent..." />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">None</SelectItem>
+                  <SelectItem value="none">None</SelectItem>
                   <SelectItem value="cold-outreach">❄️ Cold Outreach</SelectItem>
                   <SelectItem value="follow-up">📬 Follow-up</SelectItem>
                   <SelectItem value="closing">🎯 Closing Attempt</SelectItem>
