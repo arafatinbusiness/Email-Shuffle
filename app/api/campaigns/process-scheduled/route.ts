@@ -64,7 +64,32 @@ export async function POST() {
         let sentCount = 0
         let failedCount = 0
 
-        for (const recipient of recipients) {
+        for (let i = 0; i < recipients.length; i++) {
+          const recipient = recipients[i]
+
+          // Check if campaign was paused or cancelled
+          const currentCampaign = await sql`
+            SELECT * FROM email_campaigns WHERE id = ${campaign.id}
+          `
+          if (currentCampaign.length === 0) break
+          const camp = currentCampaign[0]
+          if (camp.status === 'paused' || camp.status === 'cancelled') {
+            break
+          }
+
+          // Check daily cap
+          const capReached = await checkDailyCap(sql, campaign.id, camp)
+          if (capReached) {
+            console.log(`Daily cap reached for campaign ${campaign.id}. Stopping for now.`)
+            break
+          }
+
+          // Check business hours
+          if (camp.business_hours_only && !isWithinBusinessHours(camp)) {
+            console.log(`Outside business hours for campaign ${campaign.id}. Stopping for now.`)
+            break
+          }
+
           try {
             const personalizedSubject = personalizeText(campaign.subject, recipient)
             const personalizedBody = personalizeText(campaign.body, recipient)
@@ -117,6 +142,15 @@ export async function POST() {
             `
 
             sentCount++
+
+            // Update today's sent count for daily cap tracking
+            if (camp.daily_cap && camp.daily_cap > 0) {
+              await sql`
+                UPDATE email_campaigns
+                SET today_sent_count = today_sent_count + 1
+                WHERE id = ${campaign.id}
+              `
+            }
           } catch (error: any) {
             console.error(`Failed to send to ${recipient.email}:`, error)
             await sql`
@@ -125,6 +159,19 @@ export async function POST() {
               WHERE id = ${recipient.id}
             `
             failedCount++
+          }
+
+          // Update campaign progress
+          await sql`
+            UPDATE email_campaigns
+            SET sent_count = sent_count + 1
+            WHERE id = ${campaign.id}
+          `
+
+          // Wait for calculated delay if not the last email
+          if (i < recipients.length - 1) {
+            const delayMs = calculateDelay(camp)
+            await new Promise(resolve => setTimeout(resolve, delayMs))
           }
         }
 
@@ -170,4 +217,60 @@ function appendSignature(body: string, campaignSignature: string | null, mailbox
   const sig = campaignSignature || mailboxSignature
   if (!sig) return body
   return body + '\n\n' + sig
+}
+
+// Calculate delay in milliseconds based on campaign settings
+function calculateDelay(campaign: any): number {
+  const baseGap = campaign.gap_minutes || 3
+  const maxGap = campaign.gap_min_max || 0
+
+  if (maxGap > baseGap) {
+    // Random range: pick a random number between baseGap and maxGap
+    const randomMinutes = baseGap + Math.random() * (maxGap - baseGap)
+    return Math.round(randomMinutes * 60 * 1000)
+  }
+
+  // Fixed gap with small jitter (+/- 20%)
+  const jitter = (Math.random() - 0.5) * 0.4 * baseGap // +/- 20%
+  return Math.round((baseGap + jitter) * 60 * 1000)
+}
+
+// Check if current time is within business hours
+function isWithinBusinessHours(campaign: any): boolean {
+  if (!campaign.business_hours_only) return true
+
+  const now = new Date()
+  const dayOfWeek = now.getDay()
+  
+  // Skip weekends (0=Sunday, 6=Saturday)
+  if (dayOfWeek === 0 || dayOfWeek === 6) return false
+
+  const currentMinutes = now.getHours() * 60 + now.getMinutes()
+  
+  const startParts = (campaign.business_hours_start || '09:00').split(':')
+  const endParts = (campaign.business_hours_end || '18:00').split(':')
+  
+  const startMinutes = parseInt(startParts[0]) * 60 + parseInt(startParts[1] || '0')
+  const endMinutes = parseInt(endParts[0]) * 60 + parseInt(endParts[1] || '0')
+
+  return currentMinutes >= startMinutes && currentMinutes < endMinutes
+}
+
+// Check if daily cap has been reached
+async function checkDailyCap(sql: any, campaignId: number, campaign: any): Promise<boolean> {
+  if (!campaign.daily_cap || campaign.daily_cap <= 0) return false
+
+  const today = new Date().toISOString().split('T')[0]
+
+  // If last_sent_date is not today, reset the counter
+  if (campaign.last_sent_date !== today) {
+    await sql`
+      UPDATE email_campaigns
+      SET last_sent_date = ${today}::date, today_sent_count = 0
+      WHERE id = ${campaignId}
+    `
+    return false
+  }
+
+  return (campaign.today_sent_count || 0) >= campaign.daily_cap
 }
