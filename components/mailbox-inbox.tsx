@@ -40,6 +40,7 @@ interface ThreadData {
   unread_count: number
   last_subject: string | null
   last_preview: string | null
+  last_sender: string | null
 }
 
 interface MessageData {
@@ -246,7 +247,7 @@ export function MailboxInbox({ onOpenSettings }: MailboxInboxProps) {
                         <p className={`text-sm truncate ${thread.unread_count > 0 ? 'font-semibold' : ''}`}>
                           {thread.lead_first_name 
                             ? `${thread.lead_first_name} ${thread.lead_last_name || ''}`
-                            : thread.lead_email || 'Unknown'}
+                            : thread.last_sender || thread.lead_email || 'Unknown'}
                         </p>
                         <p className="text-xs text-muted-foreground truncate">
                           {thread.last_subject || thread.subject}
@@ -288,7 +289,7 @@ export function MailboxInbox({ onOpenSettings }: MailboxInboxProps) {
                       <p className="text-sm text-muted-foreground mt-1">
                         {selectedThread.thread.lead_first_name 
                           ? `${selectedThread.thread.lead_first_name} ${selectedThread.thread.lead_last_name || ''}`
-                          : 'Unknown'} 
+                          : selectedThread.thread.last_sender || 'Unknown'} 
                         {selectedThread.thread.lead_email && (
                           <span className="ml-2">({selectedThread.thread.lead_email})</span>
                         )}

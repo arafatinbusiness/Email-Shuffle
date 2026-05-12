@@ -132,7 +132,12 @@ export async function syncInbox(
       const subject = parsed.subject || '(No Subject)'
       const body = parsed.text || ''
       const bodyHtml = parsed.html || null
-      const sender = parsed.from ? parsed.from.text : config.email
+      // Extract sender name and email properly
+      const senderRaw = parsed.from ? parsed.from.text : config.email
+      const senderName = parsed.from && parsed.from.value && parsed.from.value[0] 
+        ? (parsed.from.value[0].name || parsed.from.value[0].address || senderRaw)
+        : senderRaw
+      const sender = senderName
       const recipient = parsed.to ? parsed.to.text : config.email
       const sentAt = parsed.date || new Date()
       const isRead = msg.flags ? msg.flags.has('\\Seen') : false
