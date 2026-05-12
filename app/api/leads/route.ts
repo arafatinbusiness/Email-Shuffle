@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { getDb } from '@/lib/db'
 import { auth } from '@/lib/auth'
 
-export async function GET() {
+export async function GET(request: Request) {
   const session = await auth()
   if (!session?.user?.id) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -11,24 +11,61 @@ export async function GET() {
   try {
     const sql = getDb()
     const userId = parseInt(session.user.id)
-    const leads = await sql`
-      SELECT * FROM leads 
-      WHERE user_id = ${userId}
-      ORDER BY 
-        CASE 
-          WHEN priority = 'high' THEN 0
-          WHEN priority = 'medium' THEN 1
-          WHEN priority = 'low' THEN 2
-          ELSE 3
-        END,
-        CASE 
-          WHEN next_follow_up IS NOT NULL AND next_follow_up <= CURRENT_DATE THEN 0
-          WHEN next_follow_up IS NOT NULL THEN 1
-          ELSE 2
-        END,
-        next_follow_up ASC NULLS LAST,
-        updated_at DESC
+    const { searchParams } = new URL(request.url)
+    const groupId = searchParams.get('group_id')
+    const importBatchId = searchParams.get('import_batch_id')
+    const search = searchParams.get('search')
+    const limit = searchParams.get('limit')
+
+    let query = sql`
+      SELECT l.*, lg.name as group_name
+      FROM leads l
+      LEFT JOIN lead_groups lg ON lg.id = l.group_id
+      WHERE l.user_id = ${userId}
     `
+
+    if (groupId) {
+      if (groupId === 'null') {
+        query = sql`${query} AND l.group_id IS NULL`
+      } else {
+        query = sql`${query} AND l.group_id = ${parseInt(groupId)}`
+      }
+    }
+
+    if (importBatchId) {
+      query = sql`${query} AND l.import_batch_id = ${importBatchId}`
+    }
+
+    if (search) {
+      query = sql`${query} AND (
+        LOWER(l.first_name) LIKE LOWER(${'%' + search + '%'}) OR
+        LOWER(l.last_name) LIKE LOWER(${'%' + search + '%'}) OR
+        LOWER(l.email) LIKE LOWER(${'%' + search + '%'}) OR
+        LOWER(l.company_name) LIKE LOWER(${'%' + search + '%'})
+      )`
+    }
+
+    query = sql`${query} ORDER BY 
+      CASE 
+        WHEN l.priority = 'high' THEN 0
+        WHEN l.priority = 'medium' THEN 1
+        WHEN l.priority = 'low' THEN 2
+        ELSE 3
+      END,
+      CASE 
+        WHEN l.next_follow_up IS NOT NULL AND l.next_follow_up <= CURRENT_DATE THEN 0
+        WHEN l.next_follow_up IS NOT NULL THEN 1
+        ELSE 2
+      END,
+      l.next_follow_up ASC NULLS LAST,
+      l.updated_at DESC
+    `
+
+    if (limit) {
+      query = sql`${query} LIMIT ${parseInt(limit)}`
+    }
+
+    const leads = await query
     return NextResponse.json(leads)
   } catch (error) {
     console.error('Failed to fetch leads:', error)

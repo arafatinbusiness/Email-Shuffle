@@ -21,9 +21,11 @@ import {
   X,
   ChevronDown,
   ChevronRight,
+  Users,
 } from 'lucide-react'
 import { format } from 'date-fns'
 import { toast } from 'sonner'
+import { RichTextEditor } from './rich-text-editor'
 
 interface ThreadData {
   id: number
@@ -132,6 +134,7 @@ export function MailboxInbox({ onOpenSettings }: MailboxInboxProps) {
   const [sending, setSending] = useState(false)
   const [showCompose, setShowCompose] = useState(false)
   const [composeTo, setComposeTo] = useState('')
+  const [composeToRecipients, setComposeToRecipients] = useState<{ name: string; email: string }[]>([])
   const [composeSubject, setComposeSubject] = useState('')
   const [composeBody, setComposeBody] = useState('')
   const [composeSending, setComposeSending] = useState(false)
@@ -550,22 +553,23 @@ export function MailboxInbox({ onOpenSettings }: MailboxInboxProps) {
 
               {/* Reply input */}
               <div className="p-3 border-t bg-muted/5">
-                <div className="flex gap-2">
-                  <Textarea
-                    value={replyText}
-                    onChange={(e) => setReplyText(e.target.value)}
+                <div className="flex flex-col gap-2">
+                  <RichTextEditor
+                    content={replyText}
+                    onChange={setReplyText}
                     placeholder="Write a reply..."
-                    rows={2}
-                    className="min-h-[40px] resize-none text-sm"
+                    minHeight="100px"
                   />
-                  <Button
-                    onClick={handleSendReply}
-                    disabled={sending || !replyText.trim()}
-                    size="sm"
-                    className="self-end"
-                  >
-                    <Send className="h-4 w-4" />
-                  </Button>
+                  <div className="flex justify-end">
+                    <Button
+                      onClick={handleSendReply}
+                      disabled={sending || !replyText.replace(/<[^>]*>/g, '').trim()}
+                      size="sm"
+                    >
+                      <Send className="h-4 w-4 mr-2" />
+                      {sending ? 'Sending...' : 'Send Reply'}
+                    </Button>
+                  </div>
                 </div>
               </div>
             </>
@@ -619,64 +623,108 @@ export function MailboxInbox({ onOpenSettings }: MailboxInboxProps) {
                 </select>
               </div>
               <div className="space-y-1 relative">
-                <label className="text-xs text-muted-foreground font-medium">To</label>
-                <Input
-                  value={composeTo}
-                  onChange={(e) => {
-                    setComposeTo(e.target.value)
-                    if (e.target.value.length >= 1) {
-                      const query = e.target.value.toLowerCase()
-                      const filtered = composeSuggestions.filter(
-                        s => s.name.toLowerCase().includes(query) || s.email.toLowerCase().includes(query)
-                      )
-                      setComposeShowSuggestions(filtered.length > 0)
-                    } else {
-                      setComposeShowSuggestions(false)
-                    }
-                  }}
-                  onFocus={() => {
-                    setComposeToFocused(true)
-                    if (composeTo.length >= 1) {
-                      const query = composeTo.toLowerCase()
-                      const filtered = composeSuggestions.filter(
-                        s => s.name.toLowerCase().includes(query) || s.email.toLowerCase().includes(query)
-                      )
-                      setComposeShowSuggestions(filtered.length > 0)
-                    }
-                  }}
-                  onBlur={() => {
-                    setTimeout(() => {
-                      setComposeToFocused(false)
-                      setComposeShowSuggestions(false)
-                    }, 200)
-                  }}
-                  placeholder="Type name or email..."
-                  type="text"
-                />
-                {composeShowSuggestions && composeToFocused && (
-                  <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-popover border rounded-md shadow-lg max-h-48 overflow-y-auto">
-                    {composeSuggestions
-                      .filter(s => {
-                        const query = composeTo.toLowerCase()
-                        return s.name.toLowerCase().includes(query) || s.email.toLowerCase().includes(query)
-                      })
-                      .slice(0, 10)
-                      .map((s, i) => (
+                <label className="text-xs text-muted-foreground font-medium">
+                  To ({composeToRecipients.length} selected)
+                </label>
+                {/* Selected recipients as chips */}
+                {composeToRecipients.length > 0 && (
+                  <div className="flex flex-wrap gap-1 mb-1">
+                    {composeToRecipients.map((r, i) => (
+                      <Badge
+                        key={i}
+                        variant="secondary"
+                        className="flex items-center gap-1 text-xs py-1 px-2"
+                      >
+                        <span className="max-w-[120px] truncate">{r.name}</span>
                         <button
-                          key={i}
-                          className="w-full text-left px-3 py-2 text-sm hover:bg-muted transition-colors flex items-center gap-2"
-                          onMouseDown={() => {
-                            setComposeTo(s.email)
-                            setComposeShowSuggestions(false)
+                          onClick={() => {
+                            setComposeToRecipients(prev => prev.filter((_, idx) => idx !== i))
                           }}
+                          className="hover:text-destructive transition-colors"
                         >
-                          <User className="h-3 w-3 text-muted-foreground shrink-0" />
-                          <span className="font-medium truncate">{s.name}</span>
-                          <span className="text-muted-foreground truncate text-xs">{s.email}</span>
+                          <X className="h-3 w-3" />
                         </button>
-                      ))}
+                      </Badge>
+                    ))}
                   </div>
                 )}
+                <div className="relative">
+                  <Input
+                    value={composeTo}
+                    onChange={(e) => {
+                      setComposeTo(e.target.value)
+                      if (e.target.value.length >= 1) {
+                        const query = e.target.value.toLowerCase()
+                        const filtered = composeSuggestions.filter(
+                          s => s.name.toLowerCase().includes(query) || s.email.toLowerCase().includes(query)
+                        )
+                        setComposeShowSuggestions(filtered.length > 0)
+                      } else {
+                        setComposeShowSuggestions(false)
+                      }
+                    }}
+                    onFocus={() => {
+                      setComposeToFocused(true)
+                      if (composeTo.length >= 1) {
+                        const query = composeTo.toLowerCase()
+                        const filtered = composeSuggestions.filter(
+                          s => s.name.toLowerCase().includes(query) || s.email.toLowerCase().includes(query)
+                        )
+                        setComposeShowSuggestions(filtered.length > 0)
+                      }
+                    }}
+                    onBlur={() => {
+                      setTimeout(() => {
+                        setComposeToFocused(false)
+                        setComposeShowSuggestions(false)
+                      }, 200)
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && composeTo.includes('@')) {
+                        e.preventDefault()
+                        // Add as custom recipient
+                        const email = composeTo.trim()
+                        if (!composeToRecipients.find(r => r.email === email)) {
+                          setComposeToRecipients(prev => [...prev, { name: email, email }])
+                        }
+                        setComposeTo('')
+                        setComposeShowSuggestions(false)
+                      }
+                    }}
+                    placeholder="Search or type email + Enter..."
+                    type="text"
+                  />
+                  {composeShowSuggestions && composeToFocused && (
+                    <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-popover border rounded-md shadow-lg max-h-48 overflow-y-auto">
+                      {composeSuggestions
+                        .filter(s => {
+                          const query = composeTo.toLowerCase()
+                          return (
+                            (s.name.toLowerCase().includes(query) || s.email.toLowerCase().includes(query)) &&
+                            !composeToRecipients.find(r => r.email === s.email)
+                          )
+                        })
+                        .slice(0, 10)
+                        .map((s, i) => (
+                          <button
+                            key={i}
+                            className="w-full text-left px-3 py-2 text-sm hover:bg-muted transition-colors flex items-center gap-2"
+                            onMouseDown={() => {
+                              if (!composeToRecipients.find(r => r.email === s.email)) {
+                                setComposeToRecipients(prev => [...prev, s])
+                              }
+                              setComposeTo('')
+                              setComposeShowSuggestions(false)
+                            }}
+                          >
+                            <User className="h-3 w-3 text-muted-foreground shrink-0" />
+                            <span className="font-medium truncate">{s.name}</span>
+                            <span className="text-muted-foreground truncate text-xs">{s.email}</span>
+                          </button>
+                        ))}
+                    </div>
+                  )}
+                </div>
               </div>
               <div className="space-y-1">
                 <label className="text-xs text-muted-foreground font-medium">Subject</label>
@@ -688,17 +736,18 @@ export function MailboxInbox({ onOpenSettings }: MailboxInboxProps) {
               </div>
               <div className="space-y-1">
                 <label className="text-xs text-muted-foreground font-medium">Message</label>
-                <Textarea
-                  value={composeBody}
-                  onChange={(e) => setComposeBody(e.target.value)}
+                <RichTextEditor
+                  content={composeBody}
+                  onChange={setComposeBody}
                   placeholder="Write your message..."
-                  rows={8}
+                  minHeight="200px"
                 />
               </div>
               <div className="flex justify-end gap-2 pt-2">
                 <Button variant="outline" onClick={() => {
                   setShowCompose(false)
                   setComposeTo('')
+                  setComposeToRecipients([])
                   setComposeSubject('')
                   setComposeBody('')
                 }}>
@@ -706,26 +755,34 @@ export function MailboxInbox({ onOpenSettings }: MailboxInboxProps) {
                 </Button>
                 <Button
                   onClick={async () => {
-                    if (!composeTo || !composeSubject || !composeBody) {
+                    if (composeToRecipients.length === 0) {
+                      toast.error('Please select at least one recipient')
+                      return
+                    }
+                    if (!composeSubject || !composeBody) {
                       toast.error('Please fill in all fields')
                       return
                     }
                     setComposeSending(true)
                     try {
-                      const res = await fetch('/api/mailbox/send', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                          to: composeTo,
-                          subject: composeSubject,
-                          body: composeBody,
-                          send_as: composeFrom !== accountEmail ? composeFrom : undefined,
-                        }),
-                      })
-                      if (!res.ok) throw new Error('Failed to send')
-                      toast.success('Email sent!')
+                      let sentCount = 0
+                      for (const recipient of composeToRecipients) {
+                        const res = await fetch('/api/mailbox/send', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({
+                            to: recipient.email,
+                            subject: composeSubject,
+                            body: composeBody,
+                            send_as: composeFrom !== accountEmail ? composeFrom : undefined,
+                          }),
+                        })
+                        if (res.ok) sentCount++
+                      }
+                      toast.success(`Email sent to ${sentCount} recipient${sentCount > 1 ? 's' : ''}!`)
                       setShowCompose(false)
                       setComposeTo('')
+                      setComposeToRecipients([])
                       setComposeSubject('')
                       setComposeBody('')
                       await fetchThreads()

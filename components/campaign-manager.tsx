@@ -40,6 +40,10 @@ import {
   Ban,
   Eye,
   BarChart3,
+  FolderOpen,
+  Search,
+  Filter,
+  ChevronDown,
 } from 'lucide-react'
 
 interface Lead {
@@ -96,24 +100,66 @@ export function CampaignManager() {
   const [isCreating, setIsCreating] = useState(false)
   const [isSending, setIsSending] = useState<number | null>(null)
 
+  // Group/folder state
+  const [groups, setGroups] = useState<{ id: number; name: string; lead_count: number }[]>([])
+  const [selectedGroupId, setSelectedGroupId] = useState<string>('all')
+  const [showCreateGroup, setShowCreateGroup] = useState(false)
+  const [newGroupName, setNewGroupName] = useState('')
+  const [newGroupDesc, setNewGroupDesc] = useState('')
+
+  // Search/filter state
+  const [leadSearch, setLeadSearch] = useState('')
+  const [filteredLeads, setFilteredLeads] = useState<Lead[]>([])
+
+  // Import batch state
+  const [importBatches, setImportBatches] = useState<string[]>([])
+  const [selectedImportBatch, setSelectedImportBatch] = useState<string>('all')
+
   useEffect(() => {
     loadData()
   }, [])
 
+  // Re-fetch leads when group or import batch filter changes
+  useEffect(() => {
+    fetchFilteredLeads()
+  }, [selectedGroupId, selectedImportBatch])
+
+  const fetchFilteredLeads = async () => {
+    try {
+      const params = new URLSearchParams()
+      if (selectedGroupId !== 'all') params.set('group_id', selectedGroupId)
+      if (selectedImportBatch !== 'all') params.set('import_batch_id', selectedImportBatch)
+      params.set('limit', '500')
+
+      const res = await fetch(`/api/leads?${params.toString()}`)
+      if (res.ok) {
+        const data = await res.json()
+        setLeads(data)
+        setSelectedLeadIds([])
+        setSelectAll(false)
+      }
+    } catch (error) {
+      console.error('Failed to fetch filtered leads:', error)
+    }
+  }
+
   const loadData = async () => {
     setIsLoading(true)
     try {
-      const [campaignsRes, leadsRes, templatesRes, columnsRes] = await Promise.all([
+      const [campaignsRes, leadsRes, templatesRes, columnsRes, groupsRes, batchesRes] = await Promise.all([
         fetch('/api/campaigns'),
-        fetch('/api/leads'),
+        fetch('/api/leads?limit=500'),
         fetch('/api/templates'),
         fetch('/api/import-columns'),
+        fetch('/api/lead-groups'),
+        fetch('/api/leads?limit=1&group_by=import_batch_id'),
       ])
 
       if (campaignsRes.ok) setCampaigns(await campaignsRes.json())
       if (leadsRes.ok) setLeads(await leadsRes.json())
       if (templatesRes.ok) setTemplates(await templatesRes.json())
       if (columnsRes.ok) setImportColumns(await columnsRes.json())
+      if (groupsRes.ok) setGroups(await groupsRes.json())
     } catch (error) {
       console.error('Failed to load data:', error)
     } finally {
@@ -476,55 +522,225 @@ export function CampaignManager() {
               </CardContent>
             </Card>
 
-            {/* Lead Selection */}
+            {/* Lead Selection with Groups, Search & Import Batch */}
             <Card>
               <CardHeader className="pb-2">
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-sm">Select Recipients</CardTitle>
-                  <Button variant="ghost" size="sm" onClick={toggleSelectAll}>
-                    {selectAll ? 'Deselect All' : 'Select All'}
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-muted-foreground">
+                      {selectedLeadIds.length} of {leads.length} selected
+                    </span>
+                    <Button variant="ghost" size="sm" onClick={toggleSelectAll} className="h-7 text-xs">
+                      {selectAll ? 'Deselect All' : 'Select All'}
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Filter bar: Group + Import Batch + Search */}
+                <div className="flex items-center gap-2 mt-2">
+                  {/* Group/Folder filter */}
+                  <div className="flex-1">
+                    <select
+                      className="flex h-8 w-full rounded-md border border-input bg-transparent px-2 py-1 text-xs shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                      value={selectedGroupId}
+                      onChange={(e) => {
+                        setSelectedGroupId(e.target.value)
+                        setSelectAll(false)
+                        setSelectedLeadIds([])
+                      }}
+                    >
+                      <option value="all">📁 All Leads</option>
+                      <option value="null">📂 Ungrouped</option>
+                      {groups.map((g) => (
+                        <option key={g.id} value={g.id.toString()}>
+                          📁 {g.name} ({g.lead_count})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Import batch filter */}
+                  {importBatches.length > 0 && (
+                    <div className="flex-1">
+                      <select
+                        className="flex h-8 w-full rounded-md border border-input bg-transparent px-2 py-1 text-xs shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                        value={selectedImportBatch}
+                        onChange={(e) => {
+                          setSelectedImportBatch(e.target.value)
+                          setSelectAll(false)
+                          setSelectedLeadIds([])
+                        }}
+                      >
+                        <option value="all">📦 All Imports</option>
+                        {importBatches.map((batch) => (
+                          <option key={batch} value={batch}>
+                            📦 Import: {batch.substring(0, 20)}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+
+                  {/* Search */}
+                  <div className="relative flex-[2]">
+                    <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
+                    <Input
+                      value={leadSearch}
+                      onChange={(e) => {
+                        setLeadSearch(e.target.value)
+                        setSelectAll(false)
+                      }}
+                      placeholder="Search by name, email, company..."
+                      className="h-8 pl-7 text-xs"
+                    />
+                  </div>
+
+                  {/* Create Group button */}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 text-xs"
+                    onClick={() => setShowCreateGroup(true)}
+                  >
+                    <FolderOpen className="h-3 w-3 mr-1" />
+                    New Group
                   </Button>
                 </div>
-                <CardDescription className="text-xs">
-                  {selectedLeadIds.length} of {leads.length} leads selected
-                </CardDescription>
               </CardHeader>
-              <CardContent className="max-h-48 overflow-y-auto">
+              <CardContent className="max-h-64 overflow-y-auto">
                 {leads.length === 0 ? (
                   <p className="text-sm text-muted-foreground text-center py-4">
                     No leads found. Import leads first.
                   </p>
                 ) : (
-                  <div className="space-y-1">
-                    {leads.map((lead) => (
-                      <div
-                        key={lead.id}
-                        className={`flex items-center gap-2 p-2 rounded-md cursor-pointer hover:bg-accent ${
-                          selectedLeadIds.includes(lead.id) ? 'bg-accent' : ''
-                        }`}
-                        onClick={() => toggleLead(lead.id)}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={selectedLeadIds.includes(lead.id)}
-                          onChange={() => toggleLead(lead.id)}
-                          className="rounded"
-                        />
-                        <span className="text-sm">
-                          {lead.first_name} {lead.last_name}
-                        </span>
-                        <span className="text-xs text-muted-foreground">{lead.email}</span>
-                        {lead.company_name && (
-                          <Badge variant="outline" className="text-xs ml-auto">
-                            {lead.company_name}
-                          </Badge>
-                        )}
-                      </div>
-                    ))}
+                  <div className="space-y-0.5">
+                    {/* Select All checkbox at top */}
+                    <div
+                      className="flex items-center gap-2 p-2 rounded-md cursor-pointer hover:bg-accent border-b border-border/50 mb-1"
+                      onClick={toggleSelectAll}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selectAll || selectedLeadIds.length === leads.length}
+                        onChange={toggleSelectAll}
+                        className="rounded"
+                      />
+                      <span className="text-sm font-medium">
+                        {selectAll || selectedLeadIds.length === leads.length
+                          ? 'Deselect All'
+                          : 'Select All'}
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        ({leads.length} leads)
+                      </span>
+                    </div>
+
+                    {leads
+                      .filter((lead) => {
+                        if (leadSearch) {
+                          const q = leadSearch.toLowerCase()
+                          return (
+                            lead.first_name.toLowerCase().includes(q) ||
+                            (lead.last_name || '').toLowerCase().includes(q) ||
+                            lead.email.toLowerCase().includes(q) ||
+                            (lead.company_name || '').toLowerCase().includes(q)
+                          )
+                        }
+                        return true
+                      })
+                      .map((lead) => (
+                        <div
+                          key={lead.id}
+                          className={`flex items-center gap-2 p-2 rounded-md cursor-pointer hover:bg-accent ${
+                            selectedLeadIds.includes(lead.id) ? 'bg-accent' : ''
+                          }`}
+                          onClick={() => toggleLead(lead.id)}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={selectedLeadIds.includes(lead.id)}
+                            onChange={() => toggleLead(lead.id)}
+                            className="rounded"
+                          />
+                          <span className="text-sm">
+                            {lead.first_name} {lead.last_name}
+                          </span>
+                          <span className="text-xs text-muted-foreground">{lead.email}</span>
+                          {lead.company_name && (
+                            <Badge variant="outline" className="text-xs ml-auto">
+                              {lead.company_name}
+                            </Badge>
+                          )}
+                        </div>
+                      ))}
                   </div>
                 )}
               </CardContent>
             </Card>
+
+            {/* Create Group Dialog */}
+            <Dialog open={showCreateGroup} onOpenChange={setShowCreateGroup}>
+              <DialogContent className="max-w-sm">
+                <DialogHeader>
+                  <DialogTitle>Create New Group</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-3">
+                  <div>
+                    <Label>Group Name</Label>
+                    <Input
+                      value={newGroupName}
+                      onChange={(e) => setNewGroupName(e.target.value)}
+                      placeholder="e.g., Q1 Prospects"
+                      className="mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label>Description (optional)</Label>
+                    <Input
+                      value={newGroupDesc}
+                      onChange={(e) => setNewGroupDesc(e.target.value)}
+                      placeholder="Brief description..."
+                      className="mt-1"
+                    />
+                  </div>
+                  <Button
+                    className="w-full"
+                    onClick={async () => {
+                      if (!newGroupName.trim()) {
+                        toast.error('Please enter a group name')
+                        return
+                      }
+                      try {
+                        const res = await fetch('/api/lead-groups', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({
+                            name: newGroupName.trim(),
+                            description: newGroupDesc.trim() || null,
+                          }),
+                        })
+                        if (!res.ok) {
+                          const err = await res.json()
+                          throw new Error(err.error || 'Failed to create group')
+                        }
+                        toast.success('Group created!')
+                        setShowCreateGroup(false)
+                        setNewGroupName('')
+                        setNewGroupDesc('')
+                        // Reload groups
+                        const groupsRes = await fetch('/api/lead-groups')
+                        if (groupsRes.ok) setGroups(await groupsRes.json())
+                      } catch (error: any) {
+                        toast.error(error.message)
+                      }
+                    }}
+                  >
+                    Create Group
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
 
             <Button onClick={createCampaign} disabled={isCreating} className="w-full">
               {isCreating ? (
