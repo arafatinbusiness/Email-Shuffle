@@ -480,35 +480,33 @@ export function CampaignManager() {
 
       {/* Create Campaign Dialog */}
       <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
-        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-7xl w-[95vw] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Create New Campaign</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4">
-            {/* Top fields in 3-column grid */}
-            <div className="grid grid-cols-3 gap-4">
-              <div>
+          <div className="space-y-6">
+            {/* Top row: Campaign Name + Subject + Send From */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="space-y-1.5">
                 <Label>Campaign Name</Label>
                 <Input
                   value={campaignName}
                   onChange={(e) => setCampaignName(e.target.value)}
                   placeholder="e.g., Q1 Cold Outreach"
-                  className="mt-1"
                 />
               </div>
-              <div>
+              <div className="space-y-1.5">
                 <Label>Subject</Label>
                 <Input
                   value={subject}
                   onChange={(e) => setSubject(e.target.value)}
                   placeholder="Enter email subject..."
-                  className="mt-1"
                 />
               </div>
-              <div>
+              <div className="space-y-1.5">
                 <Label>Send From</Label>
                 <select
-                  className="flex h-10 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring mt-1"
+                  className="flex h-10 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                   value={fromEmail}
                   onChange={(e) => setFromEmail(e.target.value)}
                 >
@@ -518,24 +516,23 @@ export function CampaignManager() {
                     <option value={mailboxSendAs}>{mailboxSendAs} (alias)</option>
                   )}
                 </select>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Choose which email address to send from
-                </p>
               </div>
             </div>
 
-            <div>
+            {/* Email Body - full width */}
+            <div className="space-y-1.5">
               <Label>Email Body</Label>
               <RichTextEditor
                 content={body}
                 onChange={setBody}
                 placeholder="Write your email... Use {{first_name}}, {{company}}, etc."
-                minHeight="200px"
+                minHeight="250px"
                 showPersonalization={true}
               />
             </div>
 
-            <div>
+            {/* Signature - full width */}
+            <div className="space-y-1.5">
               <Label>Email Signature (optional)</Label>
               <textarea
                 value={campaignSignature}
@@ -548,58 +545,56 @@ John Doe
 CEO, Your Company
 Phone: +1 234 567 890
 www.yourcompany.com`}
-                className="w-full min-h-[80px] mt-1 px-3 py-2 text-sm border rounded-md bg-background resize-y focus:outline-none focus:ring-2 focus:ring-ring"
+                className="w-full min-h-[80px] px-3 py-2 text-sm border rounded-md bg-background resize-y focus:outline-none focus:ring-2 focus:ring-ring"
               />
-              <p className="text-xs text-muted-foreground mt-1">
+              <p className="text-xs text-muted-foreground">
                 This signature will be appended to every email in this campaign.
                 If you also have a mailbox signature set, the campaign signature will be used instead.
               </p>
             </div>
 
-            {/* Send Options & Lead Selection side by side */}
-            <div className="grid grid-cols-2 gap-4">
+            {/* Two-column section: Send Options + Lead Selection */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {/* Send Options */}
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm">Send Options</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <Tabs value={sendType} onValueChange={(v) => setSendType(v as any)}>
-                    <TabsList className="grid grid-cols-3">
-                      <TabsTrigger value="instant">Send Now</TabsTrigger>
-                      <TabsTrigger value="scheduled">Schedule</TabsTrigger>
-                      <TabsTrigger value="smart_spacing">Smart Spacing</TabsTrigger>
-                    </TabsList>
-                    <TabsContent value="instant" className="mt-2">
-                      <p className="text-xs text-muted-foreground">All emails sent immediately. Not recommended for bulk sending.</p>
+              <div className="space-y-3">
+                <h3 className="text-sm font-semibold">Send Options</h3>
+                <Tabs value={sendType} onValueChange={(v) => setSendType(v as any)}>
+                  <TabsList className="grid grid-cols-3 w-full">
+                    <TabsTrigger value="instant">Send Now</TabsTrigger>
+                    <TabsTrigger value="scheduled">Schedule</TabsTrigger>
+                    <TabsTrigger value="smart_spacing">Smart Spacing</TabsTrigger>
+                  </TabsList>
+                  <div className="mt-3 p-3 border rounded-md bg-muted/30">
+                    <TabsContent value="instant" className="mt-0">
+                      <p className="text-sm text-muted-foreground">All emails sent immediately. Not recommended for bulk sending.</p>
                     </TabsContent>
-                    <TabsContent value="scheduled" className="mt-2 space-y-2">
-                      <div className="grid grid-cols-2 gap-2">
-                        <div>
+                    <TabsContent value="scheduled" className="mt-0 space-y-3">
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1">
                           <Label className="text-xs">Date</Label>
-                          <Input type="date" value={scheduledDate} onChange={(e) => setScheduledDate(e.target.value)} className="mt-1 w-full" />
+                          <Input type="date" value={scheduledDate} onChange={(e) => setScheduledDate(e.target.value)} />
                         </div>
-                        <div>
+                        <div className="space-y-1">
                           <Label className="text-xs">Time</Label>
-                          <Input type="time" value={scheduledTime} onChange={(e) => setScheduledTime(e.target.value)} className="mt-1 w-full" />
+                          <Input type="time" value={scheduledTime} onChange={(e) => setScheduledTime(e.target.value)} />
                         </div>
                       </div>
                       <p className="text-xs text-muted-foreground">Emails start sending at the scheduled time with smart spacing between each.</p>
                     </TabsContent>
-                    <TabsContent value="smart_spacing" className="mt-2 space-y-3">
-                      <div className="grid grid-cols-2 gap-2">
-                        <div>
+                    <TabsContent value="smart_spacing" className="mt-0 space-y-3">
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1">
                           <Label className="text-xs">Min Delay (min)</Label>
-                          <Input type="number" min={1} max={120} value={gapMinutes} onChange={(e) => setGapMinutes(parseInt(e.target.value) || 3)} className="mt-1" />
+                          <Input type="number" min={1} max={120} value={gapMinutes} onChange={(e) => setGapMinutes(parseInt(e.target.value) || 3)} />
                         </div>
-                        <div>
+                        <div className="space-y-1">
                           <Label className="text-xs">Max Delay (min)</Label>
-                          <Input type="number" min={1} max={120} value={gapMinMax} onChange={(e) => setGapMinMax(parseInt(e.target.value) || 7)} className="mt-1" />
+                          <Input type="number" min={1} max={120} value={gapMinMax} onChange={(e) => setGapMinMax(parseInt(e.target.value) || 7)} />
                         </div>
                       </div>
                       <p className="text-xs text-muted-foreground">Random delay between Min-Max minutes per email.</p>
                       
-                      <div className="border-t pt-2 space-y-2">
+                      <div className="border-t pt-3 space-y-2">
                         <div className="flex items-center gap-2">
                           <input
                             type="checkbox"
@@ -611,20 +606,20 @@ www.yourcompany.com`}
                           <Label htmlFor="businessHours" className="text-xs cursor-pointer">Business hours only</Label>
                         </div>
                         {businessHoursOnly && (
-                          <div className="grid grid-cols-2 gap-2 ml-5">
-                            <div>
+                          <div className="grid grid-cols-2 gap-3 ml-5">
+                            <div className="space-y-1">
                               <Label className="text-xs">Start</Label>
-                              <Input type="time" value={businessHoursStart} onChange={(e) => setBusinessHoursStart(e.target.value)} className="mt-1" />
+                              <Input type="time" value={businessHoursStart} onChange={(e) => setBusinessHoursStart(e.target.value)} />
                             </div>
-                            <div>
+                            <div className="space-y-1">
                               <Label className="text-xs">End</Label>
-                              <Input type="time" value={businessHoursEnd} onChange={(e) => setBusinessHoursEnd(e.target.value)} className="mt-1" />
+                              <Input type="time" value={businessHoursEnd} onChange={(e) => setBusinessHoursEnd(e.target.value)} />
                             </div>
                           </div>
                         )}
                       </div>
 
-                      <div className="border-t pt-2">
+                      <div className="border-t pt-3">
                         <div className="flex items-center gap-2">
                           <input
                             type="checkbox"
@@ -636,83 +631,83 @@ www.yourcompany.com`}
                           <Label htmlFor="dailyCap" className="text-xs cursor-pointer">Daily limit</Label>
                         </div>
                         {dailyCap > 0 && (
-                          <div className="ml-5 mt-2">
+                          <div className="ml-5 mt-2 space-y-1">
                             <Label className="text-xs">Max per day</Label>
-                            <Input type="number" min={1} max={500} value={dailyCap} onChange={(e) => setDailyCap(parseInt(e.target.value) || 50)} className="mt-1" />
+                            <Input type="number" min={1} max={500} value={dailyCap} onChange={(e) => setDailyCap(parseInt(e.target.value) || 50)} />
                           </div>
                         )}
                       </div>
                     </TabsContent>
-                  </Tabs>
-                </CardContent>
-              </Card>
+                  </div>
+                </Tabs>
+              </div>
 
               {/* Lead Selection */}
-              <Card>
-                <CardHeader className="pb-2">
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="text-sm">Select Recipients</CardTitle>
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-muted-foreground">
-                        {selectedLeadIds.length} of {leads.length}
-                      </span>
-                      <Button variant="ghost" size="sm" onClick={toggleSelectAll} className="h-7 text-xs">
-                        {selectAll ? 'Deselect All' : 'Select All'}
-                      </Button>
-                    </div>
-                  </div>
-
-                  {/* Filter bar */}
-                  <div className="flex items-center gap-2 mt-2">
-                    <div className="flex-1">
-                      <select
-                        className="flex h-8 w-full rounded-md border border-input bg-transparent px-2 py-1 text-xs shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                        value={selectedGroupId}
-                        onChange={(e) => {
-                          setSelectedGroupId(e.target.value)
-                          setSelectAll(false)
-                          setSelectedLeadIds([])
-                        }}
-                      >
-                        <option value="all">📁 All Leads</option>
-                        <option value="null">📂 Ungrouped</option>
-                        {groups.map((g) => (
-                          <option key={g.id} value={g.id.toString()}>
-                            📁 {g.name} ({g.lead_count})
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <div className="relative flex-[2]">
-                      <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
-                      <Input
-                        value={leadSearch}
-                        onChange={(e) => {
-                          setLeadSearch(e.target.value)
-                          setSelectAll(false)
-                        }}
-                        placeholder="Search..."
-                        className="h-8 pl-7 text-xs"
-                      />
-                    </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-8 text-xs"
-                      onClick={() => setShowCreateGroup(true)}
-                    >
-                      <FolderOpen className="h-3 w-3 mr-1" />
-                      New Group
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-semibold">Select Recipients</h3>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-muted-foreground">
+                      {selectedLeadIds.length} of {leads.length}
+                    </span>
+                    <Button variant="ghost" size="sm" onClick={toggleSelectAll} className="h-7 text-xs">
+                      {selectAll ? 'Deselect All' : 'Select All'}
                     </Button>
                   </div>
-                </CardHeader>
-                <CardContent className="max-h-64 overflow-y-auto">
+                </div>
+
+                {/* Filter bar */}
+                <div className="flex items-center gap-2">
+                  <div className="flex-1">
+                    <select
+                      className="flex h-8 w-full rounded-md border border-input bg-transparent px-2 py-1 text-xs shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                      value={selectedGroupId}
+                      onChange={(e) => {
+                        setSelectedGroupId(e.target.value)
+                        setSelectAll(false)
+                        setSelectedLeadIds([])
+                      }}
+                    >
+                      <option value="all">📁 All Leads</option>
+                      <option value="null">📂 Ungrouped</option>
+                      {groups.map((g) => (
+                        <option key={g.id} value={g.id.toString()}>
+                          📁 {g.name} ({g.lead_count})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="relative flex-[2]">
+                    <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
+                    <Input
+                      value={leadSearch}
+                      onChange={(e) => {
+                        setLeadSearch(e.target.value)
+                        setSelectAll(false)
+                      }}
+                      placeholder="Search..."
+                      className="h-8 pl-7 text-xs"
+                    />
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 text-xs shrink-0"
+                    onClick={() => setShowCreateGroup(true)}
+                  >
+                    <FolderOpen className="h-3 w-3 mr-1" />
+                    New Group
+                  </Button>
+                </div>
+
+                {/* Lead list */}
+                <div className="border rounded-md max-h-64 overflow-y-auto">
                   {leads.length === 0 ? (
-                    <p className="text-sm text-muted-foreground text-center py-4">
+                    <p className="text-sm text-muted-foreground text-center py-8">
                       No leads found. Import leads first.
                     </p>
                   ) : (
-                    <div className="space-y-0.5">
+                    <div className="divide-y">
                       {leads
                         .filter((lead) => {
                           if (leadSearch) {
@@ -729,8 +724,8 @@ www.yourcompany.com`}
                         .map((lead) => (
                           <div
                             key={lead.id}
-                            className={`flex items-center gap-2 p-2 rounded-md cursor-pointer hover:bg-accent ${
-                              selectedLeadIds.includes(lead.id) ? 'bg-accent' : ''
+                            className={`flex items-center gap-3 px-3 py-2 cursor-pointer hover:bg-accent transition-colors ${
+                              selectedLeadIds.includes(lead.id) ? 'bg-accent/50' : ''
                             }`}
                             onClick={() => toggleLead(lead.id)}
                           >
@@ -738,14 +733,16 @@ www.yourcompany.com`}
                               type="checkbox"
                               checked={selectedLeadIds.includes(lead.id)}
                               onChange={() => toggleLead(lead.id)}
-                              className="rounded"
+                              className="rounded shrink-0"
                             />
-                            <span className="text-sm truncate">
-                              {lead.first_name} {lead.last_name}
-                            </span>
-                            <span className="text-xs text-muted-foreground truncate">{lead.email}</span>
+                            <div className="flex-1 min-w-0">
+                              <div className="text-sm truncate">
+                                {lead.first_name} {lead.last_name}
+                              </div>
+                              <div className="text-xs text-muted-foreground truncate">{lead.email}</div>
+                            </div>
                             {lead.company_name && (
-                              <Badge variant="outline" className="text-xs ml-auto shrink-0">
+                              <Badge variant="outline" className="text-xs shrink-0">
                                 {lead.company_name}
                               </Badge>
                             )}
@@ -753,8 +750,8 @@ www.yourcompany.com`}
                         ))}
                     </div>
                   )}
-                </CardContent>
-              </Card>
+                </div>
+              </div>
             </div>
 
             {/* Create Group Dialog */}
@@ -764,22 +761,20 @@ www.yourcompany.com`}
                   <DialogTitle>Create New Group</DialogTitle>
                 </DialogHeader>
                 <div className="space-y-3">
-                  <div>
+                  <div className="space-y-1">
                     <Label>Group Name</Label>
                     <Input
                       value={newGroupName}
                       onChange={(e) => setNewGroupName(e.target.value)}
                       placeholder="e.g., Q1 Prospects"
-                      className="mt-1"
                     />
                   </div>
-                  <div>
+                  <div className="space-y-1">
                     <Label>Description (optional)</Label>
                     <Input
                       value={newGroupDesc}
                       onChange={(e) => setNewGroupDesc(e.target.value)}
                       placeholder="Brief description..."
-                      className="mt-1"
                     />
                   </div>
                   <Button
@@ -819,7 +814,7 @@ www.yourcompany.com`}
               </DialogContent>
             </Dialog>
 
-            <Button onClick={createCampaign} disabled={isCreating} className="w-full">
+            <Button onClick={createCampaign} disabled={isCreating} className="w-full" size="lg">
               {isCreating ? (
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
               ) : (
