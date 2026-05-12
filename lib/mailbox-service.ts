@@ -51,8 +51,12 @@ export async function sendEmail(
   // Use fromOverride if provided, otherwise send_as alias, otherwise account email
   const fromAddress = fromOverride || config.send_as || config.email
 
+  // Use the alias/override as the From address so recipients see the correct sender
+  // The SMTP auth still uses the main account credentials
+  const fromName = fromAddress.split('@')[0]
+
   const info = await transporter.sendMail({
-    from: fromAddress,
+    from: `"${fromName}" <${fromAddress}>`,
     to,
     subject,
     text: body,
