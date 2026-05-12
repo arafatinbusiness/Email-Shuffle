@@ -73,6 +73,8 @@ export function MailboxInbox({ onOpenSettings }: MailboxInboxProps) {
   const [replyText, setReplyText] = useState('')
   const [sending, setSending] = useState(false)
   const [copiedField, setCopiedField] = useState<string | null>(null)
+  const [manualRecipient, setManualRecipient] = useState('')
+  const [showManualRecipient, setShowManualRecipient] = useState(false)
 
   const fetchThreads = useCallback(async (unreadOnly = false) => {
     setLoading(true)
@@ -126,45 +128,61 @@ export function MailboxInbox({ onOpenSettings }: MailboxInboxProps) {
     return raw.trim()
   }
 
-  const handleSendReply = async () => {
-    if (!selectedThread || !replyText.trim()) return
-
-    // Find the best recipient email to reply to
-    let recipient = ''
+  // Determine the best recipient email for the current thread
+  const getRecipientEmail = useCallback((): string => {
+    if (!selectedThread) return ''
 
     // Priority 1: lead_email from the thread (from leads table)
     if (selectedThread.thread.lead_email) {
-      recipient = extractEmail(selectedThread.thread.lead_email)
+      const extracted = extractEmail(selectedThread.thread.lead_email)
+      if (extracted.includes('@')) return extracted
     }
 
     // Priority 2: For incoming messages, extract email from sender field
-    if (!recipient) {
-      const lastMessage = selectedThread.messages[selectedThread.messages.length - 1]
-      if (lastMessage.direction === 'incoming') {
-        const extracted = extractEmail(lastMessage.sender)
-        // Only use if it looks like an email
-        if (extracted.includes('@')) recipient = extracted
-      }
+    const lastMessage = selectedThread.messages[selectedThread.messages.length - 1]
+    if (lastMessage.direction === 'incoming') {
+      const extracted = extractEmail(lastMessage.sender)
+      if (extracted.includes('@')) return extracted
     }
 
     // Priority 3: Look for any outgoing message's recipient in the thread (that's the lead's email)
-    if (!recipient) {
-      const outgoingMsg = [...selectedThread.messages].reverse().find(m => m.direction === 'outgoing')
-      if (outgoingMsg) {
-        const extracted = extractEmail(outgoingMsg.recipient)
-        if (extracted.includes('@')) recipient = extracted
-      }
+    const outgoingMsg = [...selectedThread.messages].reverse().find(m => m.direction === 'outgoing')
+    if (outgoingMsg) {
+      const extracted = extractEmail(outgoingMsg.recipient)
+      if (extracted.includes('@')) return extracted
     }
 
     // Priority 4: Last resort - try the last message's sender/recipient
-    if (!recipient) {
-      const lastMessage = selectedThread.messages[selectedThread.messages.length - 1]
-      const raw = lastMessage.direction === 'incoming' ? lastMessage.sender : lastMessage.recipient
-      recipient = extractEmail(raw)
+    const raw = lastMessage.direction === 'incoming' ? lastMessage.sender : lastMessage.recipient
+    const extracted = extractEmail(raw)
+    if (extracted.includes('@')) return extracted
+
+    return ''
+  }, [selectedThread])
+
+  // Show manual recipient input when email can't be determined
+  useEffect(() => {
+    if (selectedThread) {
+      const email = getRecipientEmail()
+      setShowManualRecipient(!email)
+      if (email) setManualRecipient(email)
+    } else {
+      setShowManualRecipient(false)
+      setManualRecipient('')
+    }
+  }, [selectedThread, getRecipientEmail])
+
+  const handleSendReply = async () => {
+    if (!selectedThread || !replyText.trim()) return
+
+    // Use manual recipient if provided, otherwise auto-detect
+    let recipient = manualRecipient
+    if (!recipient || !recipient.includes('@')) {
+      recipient = getRecipientEmail()
     }
 
     if (!recipient || !recipient.includes('@')) {
-      toast.error('Could not determine recipient email address')
+      toast.error('Please enter a valid recipient email address')
       return
     }
 
@@ -397,6 +415,19 @@ export function MailboxInbox({ onOpenSettings }: MailboxInboxProps) {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
+                  {showManualRecipient && (
+                    <div className="space-y-1">
+                      <label className="text-xs text-muted-foreground font-medium">
+                        To (email address)
+                      </label>
+                      <Input
+                        value={manualRecipient}
+                        onChange={(e) => setManualRecipient(e.target.value)}
+                        placeholder="Enter recipient email address..."
+                        type="email"
+                      />
+                    </div>
+                  )}
                   <Textarea
                     value={replyText}
                     onChange={(e) => setReplyText(e.target.value)}
