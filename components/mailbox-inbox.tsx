@@ -260,12 +260,20 @@ export function MailboxInbox({ onOpenSettings }: MailboxInboxProps) {
   }
 
   // Build a tree of messages based on in_reply_to
+  // Messages whose parent is not in our DB appear as top-level comments
   const buildMessageTree = (messages: MessageData[]): { root: MessageData[]; replies: Map<string, MessageData[]> } => {
     const replies = new Map<string, MessageData[]>()
+    const messageIds = new Set<string>()
     const root: MessageData[] = []
 
+    // First pass: collect all message_ids
     for (const msg of messages) {
-      if (msg.in_reply_to) {
+      messageIds.add(msg.message_id)
+    }
+
+    // Second pass: build tree - only nest if parent message_id exists in our DB
+    for (const msg of messages) {
+      if (msg.in_reply_to && messageIds.has(msg.in_reply_to)) {
         const existing = replies.get(msg.in_reply_to) || []
         existing.push(msg)
         replies.set(msg.in_reply_to, existing)
