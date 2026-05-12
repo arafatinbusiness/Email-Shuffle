@@ -129,10 +129,44 @@ export function MailboxInbox({ onOpenSettings }: MailboxInboxProps) {
   const handleSendReply = async () => {
     if (!selectedThread || !replyText.trim()) return
 
-    const lastMessage = selectedThread.messages[selectedThread.messages.length - 1]
-    const rawRecipient = selectedThread.thread.lead_email || 
-      (lastMessage.direction === 'incoming' ? lastMessage.sender : lastMessage.recipient)
-    const recipient = extractEmail(rawRecipient)
+    // Find the best recipient email to reply to
+    let recipient = ''
+
+    // Priority 1: lead_email from the thread (from leads table)
+    if (selectedThread.thread.lead_email) {
+      recipient = extractEmail(selectedThread.thread.lead_email)
+    }
+
+    // Priority 2: For incoming messages, extract email from sender field
+    if (!recipient) {
+      const lastMessage = selectedThread.messages[selectedThread.messages.length - 1]
+      if (lastMessage.direction === 'incoming') {
+        const extracted = extractEmail(lastMessage.sender)
+        // Only use if it looks like an email
+        if (extracted.includes('@')) recipient = extracted
+      }
+    }
+
+    // Priority 3: Look for any outgoing message's recipient in the thread (that's the lead's email)
+    if (!recipient) {
+      const outgoingMsg = [...selectedThread.messages].reverse().find(m => m.direction === 'outgoing')
+      if (outgoingMsg) {
+        const extracted = extractEmail(outgoingMsg.recipient)
+        if (extracted.includes('@')) recipient = extracted
+      }
+    }
+
+    // Priority 4: Last resort - try the last message's sender/recipient
+    if (!recipient) {
+      const lastMessage = selectedThread.messages[selectedThread.messages.length - 1]
+      const raw = lastMessage.direction === 'incoming' ? lastMessage.sender : lastMessage.recipient
+      recipient = extractEmail(raw)
+    }
+
+    if (!recipient || !recipient.includes('@')) {
+      toast.error('Could not determine recipient email address')
+      return
+    }
 
     setSending(true)
     try {
