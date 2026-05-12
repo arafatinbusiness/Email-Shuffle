@@ -23,6 +23,8 @@ import {
   ExternalLink,
   Copy,
   Check,
+  Plus,
+  X,
 } from 'lucide-react'
 import { format } from 'date-fns'
 import { toast } from 'sonner'
@@ -75,6 +77,11 @@ export function MailboxInbox({ onOpenSettings }: MailboxInboxProps) {
   const [copiedField, setCopiedField] = useState<string | null>(null)
   const [manualRecipient, setManualRecipient] = useState('')
   const [showManualRecipient, setShowManualRecipient] = useState(false)
+  const [showCompose, setShowCompose] = useState(false)
+  const [composeTo, setComposeTo] = useState('')
+  const [composeSubject, setComposeSubject] = useState('')
+  const [composeBody, setComposeBody] = useState('')
+  const [composeSending, setComposeSending] = useState(false)
 
   const fetchThreads = useCallback(async (unreadOnly = false) => {
     setLoading(true)
@@ -275,6 +282,10 @@ export function MailboxInbox({ onOpenSettings }: MailboxInboxProps) {
           <Button variant="outline" size="sm" onClick={handleSync}>
             <RefreshCw className="h-4 w-4 mr-2" />
             Sync
+          </Button>
+          <Button variant="default" size="sm" onClick={() => setShowCompose(true)}>
+            <Plus className="h-4 w-4 mr-2" />
+            Compose
           </Button>
           <Button variant="outline" size="sm" onClick={handleReSyncAll} className="text-destructive hover:text-destructive">
             <RefreshCw className="h-4 w-4 mr-2" />
@@ -485,6 +496,100 @@ export function MailboxInbox({ onOpenSettings }: MailboxInboxProps) {
           )}
         </div>
       </div>
+
+      {/* Compose Dialog */}
+      {showCompose && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <Card className="w-full max-w-lg">
+            <CardHeader className="pb-2">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-base">New Email</CardTitle>
+                <Button variant="ghost" size="sm" onClick={() => {
+                  setShowCompose(false)
+                  setComposeTo('')
+                  setComposeSubject('')
+                  setComposeBody('')
+                }}>
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="space-y-1">
+                <label className="text-xs text-muted-foreground font-medium">To</label>
+                <Input
+                  value={composeTo}
+                  onChange={(e) => setComposeTo(e.target.value)}
+                  placeholder="recipient@example.com"
+                  type="email"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs text-muted-foreground font-medium">Subject</label>
+                <Input
+                  value={composeSubject}
+                  onChange={(e) => setComposeSubject(e.target.value)}
+                  placeholder="Email subject..."
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs text-muted-foreground font-medium">Message</label>
+                <Textarea
+                  value={composeBody}
+                  onChange={(e) => setComposeBody(e.target.value)}
+                  placeholder="Write your message..."
+                  rows={8}
+                />
+              </div>
+              <div className="flex justify-end gap-2 pt-2">
+                <Button variant="outline" onClick={() => {
+                  setShowCompose(false)
+                  setComposeTo('')
+                  setComposeSubject('')
+                  setComposeBody('')
+                }}>
+                  Cancel
+                </Button>
+                <Button 
+                  onClick={async () => {
+                    if (!composeTo || !composeSubject || !composeBody) {
+                      toast.error('Please fill in all fields')
+                      return
+                    }
+                    setComposeSending(true)
+                    try {
+                      const res = await fetch('/api/mailbox/send', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                          to: composeTo,
+                          subject: composeSubject,
+                          body: composeBody,
+                        }),
+                      })
+                      if (!res.ok) throw new Error('Failed to send')
+                      toast.success('Email sent!')
+                      setShowCompose(false)
+                      setComposeTo('')
+                      setComposeSubject('')
+                      setComposeBody('')
+                      await fetchThreads()
+                    } catch {
+                      toast.error('Failed to send email')
+                    } finally {
+                      setComposeSending(false)
+                    }
+                  }}
+                  disabled={composeSending}
+                >
+                  <Send className="h-4 w-4 mr-2" />
+                  {composeSending ? 'Sending...' : 'Send'}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
     </div>
   )
 }

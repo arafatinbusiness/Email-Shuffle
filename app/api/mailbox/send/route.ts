@@ -37,6 +37,9 @@ export async function POST(request: Request) {
       references || null
     )
 
+    // Use send_as alias as the sender if configured
+    const senderEmail = config.send_as || config.email
+
     // Save to database
     await saveEmailToDb(
       userId,
@@ -45,7 +48,7 @@ export async function POST(request: Request) {
       subject,
       emailBody,
       null,
-      config.email,
+      senderEmail,
       to,
       result.messageId,
       in_reply_to || null,

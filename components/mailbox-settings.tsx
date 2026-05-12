@@ -21,6 +21,7 @@ interface MailboxAccountData {
   sync_enabled: boolean
   last_sync_at: string | null
   created_at: string
+  send_as: string | null
 }
 
 interface MailboxSettingsProps {
@@ -41,6 +42,7 @@ export function MailboxSettings({ onBack }: MailboxSettingsProps) {
   const [smtpHost, setSmtpHost] = useState(SPACEMAIL_SMTP_HOST)
   const [smtpPort, setSmtpPort] = useState(DEFAULT_SMTP_PORT)
   const [syncEnabled, setSyncEnabled] = useState(true)
+  const [sendAs, setSendAs] = useState('')
 
   useEffect(() => {
     fetchAccount()
@@ -60,6 +62,7 @@ export function MailboxSettings({ onBack }: MailboxSettingsProps) {
           setSmtpHost(data.smtp_host)
           setSmtpPort(data.smtp_port)
           setSyncEnabled(data.sync_enabled)
+          setSendAs(data.send_as || '')
         }
       }
     } catch {
@@ -88,6 +91,7 @@ export function MailboxSettings({ onBack }: MailboxSettingsProps) {
           smtp_host: smtpHost,
           smtp_port: smtpPort,
           sync_enabled: syncEnabled,
+          send_as: sendAs || null,
         }),
       })
 
@@ -273,6 +277,21 @@ export function MailboxSettings({ onBack }: MailboxSettingsProps) {
                 onChange={(e) => setSmtpPort(parseInt(e.target.value) || 465)}
               />
             </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="send_as">Send As (Alias)</Label>
+            <Input
+              id="send_as"
+              type="email"
+              value={sendAs}
+              onChange={(e) => setSendAs(e.target.value)}
+              placeholder="alias@yourdomain.com (optional)"
+            />
+            <p className="text-xs text-muted-foreground">
+              Emails will be sent from this address instead of your main account email.
+              Leave blank to use your main email.
+            </p>
           </div>
 
           <div className="flex items-center justify-between pt-2">

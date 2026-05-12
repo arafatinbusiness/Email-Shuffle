@@ -15,6 +15,7 @@ interface MailboxConfig {
   smtp_host: string
   smtp_port: number
   password: string
+  send_as?: string | null
 }
 
 // ============================================================
@@ -46,8 +47,11 @@ export async function sendEmail(
     headers['References'] = references || inReplyTo
   }
 
+  // Use send_as alias if configured, otherwise use the account email
+  const fromAddress = config.send_as || config.email
+
   const info = await transporter.sendMail({
-    from: config.email,
+    from: fromAddress,
     to,
     subject,
     text: body,
@@ -299,6 +303,7 @@ export async function getMailboxConfig(userId: number): Promise<MailboxConfig | 
     smtp_host: account.smtp_host,
     smtp_port: account.smtp_port,
     password,
+    send_as: account.send_as || null,
   }
 }
 
