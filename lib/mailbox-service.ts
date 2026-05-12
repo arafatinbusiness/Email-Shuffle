@@ -103,10 +103,12 @@ export async function syncInbox(
     
     // Build search criteria
     // On first sync (sinceUid=0 or undefined), fetch all emails. On subsequent syncs, fetch only new ones.
+    // uid expects a SequenceString like "1:*" or "5:*" (not an object with gt)
     const currentSinceUid = sinceUid || 0
-    const searchCriteria: SearchObject = currentSinceUid > 0
-      ? { uid: { gt: currentSinceUid } as any }
-      : { uid: { gt: 0 } as any }
+    const uidRange: string = currentSinceUid > 0
+      ? `${currentSinceUid + 1}:*`
+      : '1:*'
+    const searchCriteria: SearchObject = { uid: uidRange }
     
     for await (const msg of client.fetch(searchCriteria, {
       uid: true,
