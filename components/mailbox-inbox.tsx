@@ -48,6 +48,7 @@ interface MessageData {
   direction: 'incoming' | 'outgoing'
   subject: string
   body: string
+  body_html: string | null
   sender: string
   recipient: string
   is_read: boolean
@@ -331,7 +332,9 @@ export function MailboxInbox({ onOpenSettings }: MailboxInboxProps) {
                           </Button>
                         </div>
                       </div>
-                      <p className="text-sm whitespace-pre-wrap">{msg.body}</p>
+                      <p className="text-sm whitespace-pre-wrap">
+                        {msg.body || (msg.body_html ? msg.body_html.replace(/<[^>]*>/g, '').trim() : '(No content)')}
+                      </p>
                     </CardContent>
                   </Card>
                 ))}
