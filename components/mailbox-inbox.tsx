@@ -114,12 +114,19 @@ export function MailboxInbox({ onOpenSettings }: MailboxInboxProps) {
     }
   }
 
+  // Helper to extract email address from "Name <email>" format
+  const extractEmail = (raw: string): string => {
+    const match = raw.match(/<([^>]+)>/)
+    return match ? match[1] : raw.trim()
+  }
+
   const handleSendReply = async () => {
     if (!selectedThread || !replyText.trim()) return
 
     const lastMessage = selectedThread.messages[selectedThread.messages.length - 1]
-    const recipient = selectedThread.thread.lead_email || 
+    const rawRecipient = selectedThread.thread.lead_email || 
       (lastMessage.direction === 'incoming' ? lastMessage.sender : lastMessage.recipient)
+    const recipient = extractEmail(rawRecipient)
 
     setSending(true)
     try {

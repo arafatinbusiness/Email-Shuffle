@@ -29,7 +29,7 @@ export async function GET(request: Request) {
         (SELECT COUNT(*) FROM email_messages m WHERE m.thread_id = t.id) as message_count,
         (SELECT COUNT(*) FROM email_messages m WHERE m.thread_id = t.id AND m.direction = 'incoming' AND m.is_read = false) as unread_count,
         (SELECT m.subject FROM email_messages m WHERE m.thread_id = t.id ORDER BY m.sent_at DESC LIMIT 1) as last_subject,
-        (SELECT LEFT(m.body, 200) FROM email_messages m WHERE m.thread_id = t.id ORDER BY m.sent_at DESC LIMIT 1) as last_preview,
+        (SELECT LEFT(REGEXP_REPLACE(m.body, E'[\\n\\r]+', ' ', 'g'), 100) FROM email_messages m WHERE m.thread_id = t.id ORDER BY m.sent_at DESC LIMIT 1) as last_preview,
         (SELECT m.sender FROM email_messages m WHERE m.thread_id = t.id ORDER BY m.sent_at DESC LIMIT 1) as last_sender
       FROM email_threads t
       LEFT JOIN leads l ON l.id = t.lead_id
