@@ -1,15 +1,24 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Lead } from '@/lib/types'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Search, Send, Copy, Check, Clock, RefreshCw, User, Building2, Mail } from 'lucide-react'
+import { Search, Send, Copy, Check, Clock, RefreshCw, User, Building2, Mail, History, ChevronDown, ChevronUp } from 'lucide-react'
 import { format } from 'date-fns'
 import { toast } from 'sonner'
+
+interface EmailRecord {
+  id: number
+  lead_id: number
+  layer: string
+  subject: string
+  body: string
+  generated_at: string
+}
 
 interface CustomerUpdatesProps {
   customers: Lead[]
@@ -25,6 +34,33 @@ export function CustomerUpdates({ customers, onSelectCustomer, onUpdateCustomer,
   const [updateBody, setUpdateBody] = useState('')
   const [copiedField, setCopiedField] = useState<'subject' | 'body' | null>(null)
   const [isSending, setIsSending] = useState(false)
+  const [emailHistory, setEmailHistory] = useState<EmailRecord[]>([])
+  const [loadingHistory, setLoadingHistory] = useState(false)
+  const [expandedEmail, setExpandedEmail] = useState<number | null>(null)
+
+  // Fetch email history when a customer is selected
+  useEffect(() => {
+    if (selectedCustomer) {
+      fetchEmailHistory(selectedCustomer.id)
+    } else {
+      setEmailHistory([])
+    }
+  }, [selectedCustomer])
+
+  const fetchEmailHistory = async (leadId: number) => {
+    setLoadingHistory(true)
+    try {
+      const res = await fetch(`/api/leads/${leadId}/emails`)
+      if (res.ok) {
+        const data = await res.json()
+        setEmailHistory(data)
+      }
+    } catch {
+      // Silently fail
+    } finally {
+      setLoadingHistory(false)
+    }
+  }
 
   const filteredCustomers = customers.filter(c => {
     const q = searchQuery.toLowerCase()
@@ -68,9 +104,12 @@ export function CustomerUpdates({ customers, onSelectCustomer, onUpdateCustomer,
         last_email_sent: new Date().toISOString(),
       })
 
-      toast.success('Daily update saved! Ready to send.')
+      toast.success('Daily update saved!')
       setUpdateSubject('')
       setUpdateBody('')
+
+      // Refresh email history
+      await fetchEmailHistory(selectedCustomer.id)
     } catch {
       toast.error('Failed to save update')
     } finally {
@@ -81,7 +120,6 @@ export function CustomerUpdates({ customers, onSelectCustomer, onUpdateCustomer,
   const generateDailyUpdate = () => {
     if (!selectedCustomer) return
     const today = format(new Date(), 'EEEE, MMMM d, yyyy')
-    const companyName = selectedCustomer.company_name || 'your team'
     
     setUpdateSubject(`Project Update - ${today}`)
     setUpdateBody(`Hi ${selectedCustomer.first_name},
@@ -172,10 +210,11 @@ Best regards,
           </div>
         </div>
 
-        {/* Update Composer */}
-        <div className="lg:col-span-2">
+        {/* Update Composer + History */}
+        <div className="lg:col-span-2 space-y-4">
           {selectedCustomer ? (
-            <div className="space-y-4">
+            <>
+              {/* Customer Header */}
               <Card>
                 <CardHeader className="pb-2">
                   <div className="flex items-center justify-between">
@@ -205,6 +244,7 @@ Best regards,
                 </CardHeader>
               </Card>
 
+              {/* Subject Line */}
               <Card>
                 <CardHeader className="pb-2">
                   <div className="flex items-center justify-between">
@@ -232,6 +272,7 @@ Best regards,
                 </CardContent>
               </Card>
 
+              {/* Email Body */}
               <Card>
                 <CardHeader className="pb-2">
                   <div className="flex items-center justify-between">
@@ -267,6 +308,7 @@ Example:
                 </CardContent>
               </Card>
 
+              {/* Save Button */}
               <div className="flex gap-3">
                 <Button
                   onClick={handleSendUpdate}
@@ -287,7 +329,96 @@ Example:
                   Clear
                 </Button>
               </div>
-            </div>
+
+              {/* Email History */}
+              <Card>
+                <CardHeader className="pb-2">
+                  <div className="flex items-center gap-2">
+                    <History className="h-4 w-4 text-muted-foreground" />
+                    <CardTitle className="text-sm">Update History</CardTitle>
+                    {loadingHistory && (
+                      <RefreshCw className="h-3 w-3 animate-spin text-muted-foreground" />
+                    )}
+                    {!loadingHistory && emailHistory.length > 0 && (
+                      <Badge variant="outline" className="text-xs">
+                        {emailHistory.length} update{emailHistory.length !== 1 ? 's' : ''}
+                      </Badge>
+                    )}
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  {loadingHistory ? (
+                    <div className="text-center py-4 text-sm text-muted-foreground">
+                      Loading history...
+                    </div>
+                  ) : emailHistory.length === 0 ? (
+                    <div className="text-center py-4 text-sm text-muted-foreground">
+                      No updates saved yet. Write and save your first daily update above.
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {emailHistory.map((email) => (
+                        <div
+                          key={email.id}
+                          className="border rounded-lg overflow-hidden"
+                        >
+                          <button
+                            className="w-full flex items-center justify-between p-3 text-left hover:bg-muted/50 transition-colors"
+                            onClick={() => setExpandedEmail(expandedEmail === email.id ? null : email.id)}
+                          >
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium truncate">
+                                {email.subject}
+                              </p>
+                              <p className="text-xs text-muted-foreground mt-0.5">
+                                {format(new Date(email.generated_at), 'MMM d, yyyy h:mm a')}
+                                <span className="ml-2 text-emerald-500">daily-update</span>
+                              </p>
+                            </div>
+                            {expandedEmail === email.id ? (
+                              <ChevronUp className="h-4 w-4 text-muted-foreground shrink-0 ml-2" />
+                            ) : (
+                              <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0 ml-2" />
+                            )}
+                          </button>
+                          {expandedEmail === email.id && (
+                            <div className="px-3 pb-3 border-t pt-2">
+                              <p className="text-sm whitespace-pre-wrap">{email.body}</p>
+                              <div className="flex gap-2 mt-2">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleCopy(email.subject, 'subject')}
+                                >
+                                  {copiedField === 'subject' ? (
+                                    <Check className="h-3 w-3 text-green-500" />
+                                  ) : (
+                                    <Copy className="h-3 w-3" />
+                                  )}
+                                  <span className="ml-1 text-xs">Copy Subject</span>
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleCopy(email.body, 'body')}
+                                >
+                                  {copiedField === 'body' ? (
+                                    <Check className="h-3 w-3 text-green-500" />
+                                  ) : (
+                                    <Copy className="h-3 w-3" />
+                                  )}
+                                  <span className="ml-1 text-xs">Copy Body</span>
+                                </Button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </>
           ) : (
             <div className="h-full flex items-center justify-center">
               <div className="text-center space-y-3 py-16">
