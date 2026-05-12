@@ -79,3 +79,6 @@ CREATE TRIGGER update_leads_updated_at
     BEFORE UPDATE ON leads
     FOR EACH ROW
     EXECUTE FUNCTION update_updated_at_column();
+
+-- Add last_sync_uid column to mailbox_accounts if not exists
+ALTER TABLE mailbox_accounts ADD COLUMN IF NOT EXISTS last_sync_uid INTEGER DEFAULT 0;

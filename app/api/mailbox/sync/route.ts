@@ -34,15 +34,13 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'No mailbox configured' }, { status: 400 })
     }
 
-    // Get last synced UID
+    // Get last synced UID from the mailbox_accounts table
     let lastUid = 0
     if (!clearFirst) {
-      const lastUidResult = await sql`
-        SELECT MAX(CAST(SUBSTRING(message_id FROM 'uid-([0-9]+)') AS INTEGER)) as last_uid
-        FROM email_messages
-        WHERE user_id = ${userId} AND direction = 'incoming'
+      const accountResult = await sql`
+        SELECT last_sync_uid FROM mailbox_accounts WHERE user_id = ${userId}
       `
-      lastUid = lastUidResult[0]?.last_uid || 0
+      lastUid = accountResult[0]?.last_sync_uid || 0
     }
 
     // Sync inbox
@@ -102,9 +100,9 @@ export async function POST(request: Request) {
       }
     }
 
-    // Update last sync timestamp
+    // Update last sync timestamp and UID
     await sql`
-      UPDATE mailbox_accounts SET last_sync_at = NOW() WHERE user_id = ${userId}
+      UPDATE mailbox_accounts SET last_sync_at = NOW(), last_sync_uid = ${newLastUid} WHERE user_id = ${userId}
     `
 
     return NextResponse.json({
