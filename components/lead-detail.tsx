@@ -50,6 +50,13 @@ export function LeadDetail({ lead, open, onOpenChange, onEdit, onUpdate }: LeadD
     })
   }
 
+  const handleSaveTemplate = async (layer: LeadLayer, subject: string, body: string) => {
+    // Save the custom subject/body as custom_notes for this lead
+    await onUpdate({
+      custom_notes: `[${layer} Template]\nSubject: ${subject}\n\n${body}`,
+    })
+  }
+
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent className="w-full sm:max-w-2xl overflow-y-auto">
@@ -91,6 +98,7 @@ export function LeadDetail({ lead, open, onOpenChange, onEdit, onUpdate }: LeadD
               lead={lead}
               onLayerChange={handleLayerChange}
               onMarkSent={handleMarkSent}
+              onSaveTemplate={handleSaveTemplate}
             />
           </TabsContent>
 

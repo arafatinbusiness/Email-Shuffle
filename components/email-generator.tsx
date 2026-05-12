@@ -8,20 +8,23 @@ import { Textarea } from '@/components/ui/textarea'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Copy, Check, Send, Clock, ChevronRight } from 'lucide-react'
+import { Copy, Check, Send, Clock, ChevronRight, Save } from 'lucide-react'
 import { addDays, format } from 'date-fns'
+import { toast } from 'sonner'
 
 interface EmailGeneratorProps {
   lead: Lead
   onLayerChange: (layer: LeadLayer) => void
   onMarkSent: () => void
+  onSaveTemplate?: (layer: LeadLayer, subject: string, body: string) => Promise<void>
 }
 
-export function EmailGenerator({ lead, onLayerChange, onMarkSent }: EmailGeneratorProps) {
+export function EmailGenerator({ lead, onLayerChange, onMarkSent, onSaveTemplate }: EmailGeneratorProps) {
   const [activeLayer, setActiveLayer] = useState<LeadLayer>(lead.current_layer)
   const [copiedField, setCopiedField] = useState<'subject' | 'body' | null>(null)
   const [customSubject, setCustomSubject] = useState('')
   const [customBody, setCustomBody] = useState('')
+  const [isSaving, setIsSaving] = useState(false)
 
   const template = generateEmailTemplate(lead, activeLayer)
   const subject = customSubject || template.subject
@@ -37,6 +40,19 @@ export function EmailGenerator({ lead, onLayerChange, onMarkSent }: EmailGenerat
     setActiveLayer(value as LeadLayer)
     setCustomSubject('')
     setCustomBody('')
+  }
+
+  const handleSave = async () => {
+    if (!onSaveTemplate) return
+    setIsSaving(true)
+    try {
+      await onSaveTemplate(activeLayer, subject, body)
+      toast.success(`Template saved for ${activeLayer}`)
+    } catch {
+      toast.error('Failed to save template')
+    } finally {
+      setIsSaving(false)
+    }
   }
 
   const nextLayer = getNextLayer(activeLayer)
@@ -151,6 +167,17 @@ export function EmailGenerator({ lead, onLayerChange, onMarkSent }: EmailGenerat
           >
             Move to {nextLayer}
             <ChevronRight className="h-4 w-4 ml-2" />
+          </Button>
+        )}
+        {onSaveTemplate && (
+          <Button
+            variant="secondary"
+            onClick={handleSave}
+            disabled={isSaving}
+            className="flex-1"
+          >
+            <Save className="h-4 w-4 mr-2" />
+            {isSaving ? 'Saving...' : 'Save Template'}
           </Button>
         )}
       </div>

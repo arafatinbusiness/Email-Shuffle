@@ -92,12 +92,14 @@ export function Dashboard() {
   }
 
   const handleUpdateLead = async (data: Partial<Lead>) => {
-    if (!selectedLead) return
+    // Use the lead from the form if editing, otherwise use selectedLead
+    const leadToUpdate = isEditing && selectedLead ? selectedLead : selectedLead
+    if (!leadToUpdate) return
     try {
-      const res = await fetch(`/api/leads/${selectedLead.id}`, {
+      const res = await fetch(`/api/leads/${leadToUpdate.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...selectedLead, ...data }),
+        body: JSON.stringify({ ...leadToUpdate, ...data }),
       })
       if (!res.ok) throw new Error('Failed to update lead')
       const updated = await res.json()
