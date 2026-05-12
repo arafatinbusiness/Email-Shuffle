@@ -130,8 +130,15 @@ export async function syncInbox(
       const inReplyTo = parsed.inReplyTo || null
       const references = parsed.references || null
       const subject = parsed.subject || '(No Subject)'
-      const body = parsed.text || ''
+      // Use parsed.text if available and meaningful, otherwise strip HTML from bodyHtml
+      let body = parsed.text || ''
       const bodyHtml = parsed.html || null
+      // If text body is empty or looks like garbled tracking content (no real words), use stripped HTML
+      if ((!body || body.length < 20 || !/[a-zA-Z]{3,}/.test(body)) && bodyHtml) {
+        body = bodyHtml.replace(/<[^>]*>/g, ' ').replace(/&[a-z]+;/g, ' ').replace(/\s+/g, ' ').trim()
+        // Limit stripped HTML to 500 chars to avoid huge bodies
+        if (body.length > 500) body = body.substring(0, 500) + '...'
+      }
       // Extract sender name and email properly
       const senderRaw = parsed.from ? parsed.from.text : config.email
       const senderName = parsed.from && parsed.from.value && parsed.from.value[0] 
