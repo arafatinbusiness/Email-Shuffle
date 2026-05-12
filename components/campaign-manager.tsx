@@ -103,6 +103,9 @@ export function CampaignManager() {
   const [selectedLeadIds, setSelectedLeadIds] = useState<number[]>([])
   const [selectAll, setSelectAll] = useState(false)
   const [campaignSignature, setCampaignSignature] = useState('')
+  const [fromEmail, setFromEmail] = useState('')
+  const [mailboxEmail, setMailboxEmail] = useState('')
+  const [mailboxSendAs, setMailboxSendAs] = useState('')
   const [isCreating, setIsCreating] = useState(false)
   const [isSending, setIsSending] = useState<number | null>(null)
 
@@ -152,13 +155,14 @@ export function CampaignManager() {
   const loadData = async () => {
     setIsLoading(true)
     try {
-      const [campaignsRes, leadsRes, templatesRes, columnsRes, groupsRes, batchesRes] = await Promise.all([
+      const [campaignsRes, leadsRes, templatesRes, columnsRes, groupsRes, batchesRes, mailboxRes] = await Promise.all([
         fetch('/api/campaigns'),
         fetch('/api/leads?limit=500'),
         fetch('/api/templates'),
         fetch('/api/import-columns'),
         fetch('/api/lead-groups'),
         fetch('/api/leads?limit=1&group_by=import_batch_id'),
+        fetch('/api/mailbox/account'),
       ])
 
       if (campaignsRes.ok) setCampaigns(await campaignsRes.json())
@@ -166,6 +170,13 @@ export function CampaignManager() {
       if (templatesRes.ok) setTemplates(await templatesRes.json())
       if (columnsRes.ok) setImportColumns(await columnsRes.json())
       if (groupsRes.ok) setGroups(await groupsRes.json())
+      if (mailboxRes.ok) {
+        const mailbox = await mailboxRes.json()
+        if (mailbox) {
+          setMailboxEmail(mailbox.email || '')
+          setMailboxSendAs(mailbox.send_as || '')
+        }
+      }
     } catch (error) {
       console.error('Failed to load data:', error)
     } finally {
@@ -204,6 +215,7 @@ export function CampaignManager() {
         gap_minutes: gapMinutes,
         lead_ids: selectedLeadIds,
         signature: campaignSignature,
+        from_email: fromEmail || undefined,
       }
 
       if (sendType === 'scheduled') {
@@ -468,29 +480,48 @@ export function CampaignManager() {
 
       {/* Create Campaign Dialog */}
       <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
-        <DialogContent className="max-w-7xl w-[95vw] max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Create New Campaign</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            <div>
-              <Label>Campaign Name</Label>
-              <Input
-                value={campaignName}
-                onChange={(e) => setCampaignName(e.target.value)}
-                placeholder="e.g., Q1 Cold Outreach"
-                className="mt-1"
-              />
-            </div>
-
-            <div>
-              <Label>Subject</Label>
-              <Input
-                value={subject}
-                onChange={(e) => setSubject(e.target.value)}
-                placeholder="Enter email subject..."
-                className="mt-1"
-              />
+            {/* Top fields in 3-column grid */}
+            <div className="grid grid-cols-3 gap-4">
+              <div>
+                <Label>Campaign Name</Label>
+                <Input
+                  value={campaignName}
+                  onChange={(e) => setCampaignName(e.target.value)}
+                  placeholder="e.g., Q1 Cold Outreach"
+                  className="mt-1"
+                />
+              </div>
+              <div>
+                <Label>Subject</Label>
+                <Input
+                  value={subject}
+                  onChange={(e) => setSubject(e.target.value)}
+                  placeholder="Enter email subject..."
+                  className="mt-1"
+                />
+              </div>
+              <div>
+                <Label>Send From</Label>
+                <select
+                  className="flex h-10 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring mt-1"
+                  value={fromEmail}
+                  onChange={(e) => setFromEmail(e.target.value)}
+                >
+                  <option value="">Default (mailbox setting)</option>
+                  {mailboxEmail && <option value={mailboxEmail}>{mailboxEmail} (main)</option>}
+                  {mailboxSendAs && mailboxSendAs !== mailboxEmail && (
+                    <option value={mailboxSendAs}>{mailboxSendAs} (alias)</option>
+                  )}
+                </select>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Choose which email address to send from
+                </p>
+              </div>
             </div>
 
             <div>
@@ -525,251 +556,206 @@ www.yourcompany.com`}
               </p>
             </div>
 
-            {/* Send Options */}
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm">Send Options</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <Tabs value={sendType} onValueChange={(v) => setSendType(v as any)}>
-                  <TabsList className="grid grid-cols-3">
-                    <TabsTrigger value="instant">Send Now</TabsTrigger>
-                    <TabsTrigger value="scheduled">Schedule</TabsTrigger>
-                    <TabsTrigger value="smart_spacing">Smart Spacing</TabsTrigger>
-                  </TabsList>
-                  <TabsContent value="instant" className="mt-2">
-                    <p className="text-xs text-muted-foreground">All emails sent immediately. Not recommended for bulk sending.</p>
-                  </TabsContent>
-                  <TabsContent value="scheduled" className="mt-2 space-y-2">
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <Label className="text-xs">Date</Label>
-                        <Input type="date" value={scheduledDate} onChange={(e) => setScheduledDate(e.target.value)} className="mt-1 w-full" />
-                      </div>
-                      <div>
-                        <Label className="text-xs">Time</Label>
-                        <Input type="time" value={scheduledTime} onChange={(e) => setScheduledTime(e.target.value)} className="mt-1 w-full" />
-                      </div>
-                    </div>
-                    <p className="text-xs text-muted-foreground">Emails start sending at the scheduled time with smart spacing between each.</p>
-                  </TabsContent>
-                  <TabsContent value="smart_spacing" className="mt-2 space-y-3">
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <Label className="text-xs">Min Delay (minutes)</Label>
-                        <Input type="number" min={1} max={120} value={gapMinutes} onChange={(e) => setGapMinutes(parseInt(e.target.value) || 3)} className="mt-1" />
-                      </div>
-                      <div>
-                        <Label className="text-xs">Max Delay (minutes)</Label>
-                        <Input type="number" min={1} max={120} value={gapMinMax} onChange={(e) => setGapMinMax(parseInt(e.target.value) || 7)} className="mt-1" />
-                      </div>
-                    </div>
-                    <p className="text-xs text-muted-foreground">Random delay between Min-Max minutes per email. Looks more human than fixed gaps.</p>
-                    
-                    <div className="border-t pt-3 space-y-2">
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="checkbox"
-                          id="businessHours"
-                          checked={businessHoursOnly}
-                          onChange={(e) => setBusinessHoursOnly(e.target.checked)}
-                          className="rounded"
-                        />
-                        <Label htmlFor="businessHours" className="text-xs cursor-pointer">Business hours only (Mon-Fri)</Label>
-                      </div>
-                      {businessHoursOnly && (
-                        <div className="grid grid-cols-2 gap-2 ml-5">
-                          <div>
-                            <Label className="text-xs">Start</Label>
-                            <Input type="time" value={businessHoursStart} onChange={(e) => setBusinessHoursStart(e.target.value)} className="mt-1" />
-                          </div>
-                          <div>
-                            <Label className="text-xs">End</Label>
-                            <Input type="time" value={businessHoursEnd} onChange={(e) => setBusinessHoursEnd(e.target.value)} className="mt-1" />
-                          </div>
+            {/* Send Options & Lead Selection side by side */}
+            <div className="grid grid-cols-2 gap-4">
+              {/* Send Options */}
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm">Send Options</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <Tabs value={sendType} onValueChange={(v) => setSendType(v as any)}>
+                    <TabsList className="grid grid-cols-3">
+                      <TabsTrigger value="instant">Send Now</TabsTrigger>
+                      <TabsTrigger value="scheduled">Schedule</TabsTrigger>
+                      <TabsTrigger value="smart_spacing">Smart Spacing</TabsTrigger>
+                    </TabsList>
+                    <TabsContent value="instant" className="mt-2">
+                      <p className="text-xs text-muted-foreground">All emails sent immediately. Not recommended for bulk sending.</p>
+                    </TabsContent>
+                    <TabsContent value="scheduled" className="mt-2 space-y-2">
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <Label className="text-xs">Date</Label>
+                          <Input type="date" value={scheduledDate} onChange={(e) => setScheduledDate(e.target.value)} className="mt-1 w-full" />
                         </div>
-                      )}
-                    </div>
-
-                    <div className="border-t pt-3">
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="checkbox"
-                          id="dailyCap"
-                          checked={dailyCap > 0}
-                          onChange={(e) => setDailyCap(e.target.checked ? 50 : 0)}
-                          className="rounded"
-                        />
-                        <Label htmlFor="dailyCap" className="text-xs cursor-pointer">Daily sending limit</Label>
-                      </div>
-                      {dailyCap > 0 && (
-                        <div className="ml-5 mt-2">
-                          <Label className="text-xs">Max emails per day</Label>
-                          <Input type="number" min={1} max={500} value={dailyCap} onChange={(e) => setDailyCap(parseInt(e.target.value) || 50)} className="mt-1" />
+                        <div>
+                          <Label className="text-xs">Time</Label>
+                          <Input type="time" value={scheduledTime} onChange={(e) => setScheduledTime(e.target.value)} className="mt-1 w-full" />
                         </div>
-                      )}
+                      </div>
+                      <p className="text-xs text-muted-foreground">Emails start sending at the scheduled time with smart spacing between each.</p>
+                    </TabsContent>
+                    <TabsContent value="smart_spacing" className="mt-2 space-y-3">
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <Label className="text-xs">Min Delay (min)</Label>
+                          <Input type="number" min={1} max={120} value={gapMinutes} onChange={(e) => setGapMinutes(parseInt(e.target.value) || 3)} className="mt-1" />
+                        </div>
+                        <div>
+                          <Label className="text-xs">Max Delay (min)</Label>
+                          <Input type="number" min={1} max={120} value={gapMinMax} onChange={(e) => setGapMinMax(parseInt(e.target.value) || 7)} className="mt-1" />
+                        </div>
+                      </div>
+                      <p className="text-xs text-muted-foreground">Random delay between Min-Max minutes per email.</p>
+                      
+                      <div className="border-t pt-2 space-y-2">
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            id="businessHours"
+                            checked={businessHoursOnly}
+                            onChange={(e) => setBusinessHoursOnly(e.target.checked)}
+                            className="rounded"
+                          />
+                          <Label htmlFor="businessHours" className="text-xs cursor-pointer">Business hours only</Label>
+                        </div>
+                        {businessHoursOnly && (
+                          <div className="grid grid-cols-2 gap-2 ml-5">
+                            <div>
+                              <Label className="text-xs">Start</Label>
+                              <Input type="time" value={businessHoursStart} onChange={(e) => setBusinessHoursStart(e.target.value)} className="mt-1" />
+                            </div>
+                            <div>
+                              <Label className="text-xs">End</Label>
+                              <Input type="time" value={businessHoursEnd} onChange={(e) => setBusinessHoursEnd(e.target.value)} className="mt-1" />
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="border-t pt-2">
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            id="dailyCap"
+                            checked={dailyCap > 0}
+                            onChange={(e) => setDailyCap(e.target.checked ? 50 : 0)}
+                            className="rounded"
+                          />
+                          <Label htmlFor="dailyCap" className="text-xs cursor-pointer">Daily limit</Label>
+                        </div>
+                        {dailyCap > 0 && (
+                          <div className="ml-5 mt-2">
+                            <Label className="text-xs">Max per day</Label>
+                            <Input type="number" min={1} max={500} value={dailyCap} onChange={(e) => setDailyCap(parseInt(e.target.value) || 50)} className="mt-1" />
+                          </div>
+                        )}
+                      </div>
+                    </TabsContent>
+                  </Tabs>
+                </CardContent>
+              </Card>
+
+              {/* Lead Selection */}
+              <Card>
+                <CardHeader className="pb-2">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-sm">Select Recipients</CardTitle>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-muted-foreground">
+                        {selectedLeadIds.length} of {leads.length}
+                      </span>
+                      <Button variant="ghost" size="sm" onClick={toggleSelectAll} className="h-7 text-xs">
+                        {selectAll ? 'Deselect All' : 'Select All'}
+                      </Button>
                     </div>
-                  </TabsContent>
-                </Tabs>
-              </CardContent>
-            </Card>
-
-            {/* Lead Selection with Groups, Search & Import Batch */}
-            <Card>
-              <CardHeader className="pb-2">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-sm">Select Recipients</CardTitle>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-muted-foreground">
-                      {selectedLeadIds.length} of {leads.length} selected
-                    </span>
-                    <Button variant="ghost" size="sm" onClick={toggleSelectAll} className="h-7 text-xs">
-                      {selectAll ? 'Deselect All' : 'Select All'}
-                    </Button>
-                  </div>
-                </div>
-
-                {/* Filter bar: Group + Import Batch + Search */}
-                <div className="flex items-center gap-2 mt-2">
-                  {/* Group/Folder filter */}
-                  <div className="flex-1">
-                    <select
-                      className="flex h-8 w-full rounded-md border border-input bg-transparent px-2 py-1 text-xs shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                      value={selectedGroupId}
-                      onChange={(e) => {
-                        setSelectedGroupId(e.target.value)
-                        setSelectAll(false)
-                        setSelectedLeadIds([])
-                      }}
-                    >
-                      <option value="all">📁 All Leads</option>
-                      <option value="null">📂 Ungrouped</option>
-                      {groups.map((g) => (
-                        <option key={g.id} value={g.id.toString()}>
-                          📁 {g.name} ({g.lead_count})
-                        </option>
-                      ))}
-                    </select>
                   </div>
 
-                  {/* Import batch filter */}
-                  {importBatches.length > 0 && (
+                  {/* Filter bar */}
+                  <div className="flex items-center gap-2 mt-2">
                     <div className="flex-1">
                       <select
                         className="flex h-8 w-full rounded-md border border-input bg-transparent px-2 py-1 text-xs shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                        value={selectedImportBatch}
+                        value={selectedGroupId}
                         onChange={(e) => {
-                          setSelectedImportBatch(e.target.value)
+                          setSelectedGroupId(e.target.value)
                           setSelectAll(false)
                           setSelectedLeadIds([])
                         }}
                       >
-                        <option value="all">📦 All Imports</option>
-                        {importBatches.map((batch) => (
-                          <option key={batch} value={batch}>
-                            📦 Import: {batch.substring(0, 20)}
+                        <option value="all">📁 All Leads</option>
+                        <option value="null">📂 Ungrouped</option>
+                        {groups.map((g) => (
+                          <option key={g.id} value={g.id.toString()}>
+                            📁 {g.name} ({g.lead_count})
                           </option>
                         ))}
                       </select>
                     </div>
-                  )}
-
-                  {/* Search */}
-                  <div className="relative flex-[2]">
-                    <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
-                    <Input
-                      value={leadSearch}
-                      onChange={(e) => {
-                        setLeadSearch(e.target.value)
-                        setSelectAll(false)
-                      }}
-                      placeholder="Search by name, email, company..."
-                      className="h-8 pl-7 text-xs"
-                    />
-                  </div>
-
-                  {/* Create Group button */}
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-8 text-xs"
-                    onClick={() => setShowCreateGroup(true)}
-                  >
-                    <FolderOpen className="h-3 w-3 mr-1" />
-                    New Group
-                  </Button>
-                </div>
-              </CardHeader>
-              <CardContent className="max-h-64 overflow-y-auto">
-                {leads.length === 0 ? (
-                  <p className="text-sm text-muted-foreground text-center py-4">
-                    No leads found. Import leads first.
-                  </p>
-                ) : (
-                  <div className="space-y-0.5">
-                    {/* Select All checkbox at top */}
-                    <div
-                      className="flex items-center gap-2 p-2 rounded-md cursor-pointer hover:bg-accent border-b border-border/50 mb-1"
-                      onClick={toggleSelectAll}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={selectAll || selectedLeadIds.length === leads.length}
-                        onChange={toggleSelectAll}
-                        className="rounded"
+                    <div className="relative flex-[2]">
+                      <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
+                      <Input
+                        value={leadSearch}
+                        onChange={(e) => {
+                          setLeadSearch(e.target.value)
+                          setSelectAll(false)
+                        }}
+                        placeholder="Search..."
+                        className="h-8 pl-7 text-xs"
                       />
-                      <span className="text-sm font-medium">
-                        {selectAll || selectedLeadIds.length === leads.length
-                          ? 'Deselect All'
-                          : 'Select All'}
-                      </span>
-                      <span className="text-xs text-muted-foreground">
-                        ({leads.length} leads)
-                      </span>
                     </div>
-
-                    {leads
-                      .filter((lead) => {
-                        if (leadSearch) {
-                          const q = leadSearch.toLowerCase()
-                          return (
-                            lead.first_name.toLowerCase().includes(q) ||
-                            (lead.last_name || '').toLowerCase().includes(q) ||
-                            lead.email.toLowerCase().includes(q) ||
-                            (lead.company_name || '').toLowerCase().includes(q)
-                          )
-                        }
-                        return true
-                      })
-                      .map((lead) => (
-                        <div
-                          key={lead.id}
-                          className={`flex items-center gap-2 p-2 rounded-md cursor-pointer hover:bg-accent ${
-                            selectedLeadIds.includes(lead.id) ? 'bg-accent' : ''
-                          }`}
-                          onClick={() => toggleLead(lead.id)}
-                        >
-                          <input
-                            type="checkbox"
-                            checked={selectedLeadIds.includes(lead.id)}
-                            onChange={() => toggleLead(lead.id)}
-                            className="rounded"
-                          />
-                          <span className="text-sm">
-                            {lead.first_name} {lead.last_name}
-                          </span>
-                          <span className="text-xs text-muted-foreground">{lead.email}</span>
-                          {lead.company_name && (
-                            <Badge variant="outline" className="text-xs ml-auto">
-                              {lead.company_name}
-                            </Badge>
-                          )}
-                        </div>
-                      ))}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-8 text-xs"
+                      onClick={() => setShowCreateGroup(true)}
+                    >
+                      <FolderOpen className="h-3 w-3 mr-1" />
+                      New Group
+                    </Button>
                   </div>
-                )}
-              </CardContent>
-            </Card>
+                </CardHeader>
+                <CardContent className="max-h-64 overflow-y-auto">
+                  {leads.length === 0 ? (
+                    <p className="text-sm text-muted-foreground text-center py-4">
+                      No leads found. Import leads first.
+                    </p>
+                  ) : (
+                    <div className="space-y-0.5">
+                      {leads
+                        .filter((lead) => {
+                          if (leadSearch) {
+                            const q = leadSearch.toLowerCase()
+                            return (
+                              lead.first_name.toLowerCase().includes(q) ||
+                              (lead.last_name || '').toLowerCase().includes(q) ||
+                              lead.email.toLowerCase().includes(q) ||
+                              (lead.company_name || '').toLowerCase().includes(q)
+                            )
+                          }
+                          return true
+                        })
+                        .map((lead) => (
+                          <div
+                            key={lead.id}
+                            className={`flex items-center gap-2 p-2 rounded-md cursor-pointer hover:bg-accent ${
+                              selectedLeadIds.includes(lead.id) ? 'bg-accent' : ''
+                            }`}
+                            onClick={() => toggleLead(lead.id)}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={selectedLeadIds.includes(lead.id)}
+                              onChange={() => toggleLead(lead.id)}
+                              className="rounded"
+                            />
+                            <span className="text-sm truncate">
+                              {lead.first_name} {lead.last_name}
+                            </span>
+                            <span className="text-xs text-muted-foreground truncate">{lead.email}</span>
+                            {lead.company_name && (
+                              <Badge variant="outline" className="text-xs ml-auto shrink-0">
+                                {lead.company_name}
+                              </Badge>
+                            )}
+                          </div>
+                        ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
 
             {/* Create Group Dialog */}
             <Dialog open={showCreateGroup} onOpenChange={setShowCreateGroup}>
@@ -820,7 +806,6 @@ www.yourcompany.com`}
                         setShowCreateGroup(false)
                         setNewGroupName('')
                         setNewGroupDesc('')
-                        // Reload groups
                         const groupsRes = await fetch('/api/lead-groups')
                         if (groupsRes.ok) setGroups(await groupsRes.json())
                       } catch (error: any) {
@@ -900,6 +885,22 @@ www.yourcompany.com`}
                   dangerouslySetInnerHTML={{ __html: showDetailDialog.body }}
                 />
               </div>
+
+              {(showDetailDialog as any).signature && (
+                <div>
+                  <p className="text-xs text-muted-foreground mb-1">Signature</p>
+                  <pre className="text-sm p-2 bg-muted rounded whitespace-pre-wrap font-sans">
+                    {(showDetailDialog as any).signature}
+                  </pre>
+                </div>
+              )}
+
+              {(showDetailDialog as any).from_email && (
+                <div>
+                  <p className="text-xs text-muted-foreground mb-1">Send From</p>
+                  <p className="text-sm p-2 bg-muted rounded">{(showDetailDialog as any).from_email}</p>
+                </div>
+              )}
             </div>
           )}
         </DialogContent>

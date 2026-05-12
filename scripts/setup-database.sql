@@ -1,4 +1,4 @@
--- Email Outreach Lead Management Database Schema
+saved signature is not seen in rih-- Email Outreach Lead Management Database Schema
 -- Run this script in your Neon/PostgreSQL database to set up the tables
 
 -- Create the users table for authentication
@@ -102,6 +102,7 @@ CREATE TABLE IF NOT EXISTS email_campaigns (
   sent_count INTEGER DEFAULT 0,
   failed_count INTEGER DEFAULT 0,
   signature TEXT DEFAULT '',
+  from_email TEXT DEFAULT '',
   created_at TIMESTAMP DEFAULT NOW(),
   updated_at TIMESTAMP DEFAULT NOW()
 );

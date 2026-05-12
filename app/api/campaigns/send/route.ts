@@ -58,7 +58,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ message: 'No pending recipients', campaign })
     }
 
-    const senderEmail = config.send_as || config.email
+    // Use campaign's from_email if set, otherwise fall back to mailbox send_as or main email
+    const senderEmail = campaign.from_email || config.send_as || config.email
 
     // Process sending based on send_type
     if (campaign.send_type === 'instant') {
@@ -296,7 +297,7 @@ async function processScheduledCampaign(campaignId: number, userId: number) {
       return
     }
 
-    const senderEmail = config.send_as || config.email
+    const senderEmail = campaign.from_email || config.send_as || config.email
 
     // Get pending recipients ordered by ID
     const recipients = await sql`
