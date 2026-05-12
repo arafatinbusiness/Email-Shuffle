@@ -151,9 +151,11 @@ export default function NewCampaignPage() {
           setIsCreating(false)
           return
         }
-        // Send the local date/time as-is (no UTC conversion) since the DB column is
-        // "timestamp without time zone" and created_at uses now() which is local time
-        payload.scheduled_at = `${scheduledDate} ${scheduledTime}:00`
+        // Convert local time to UTC for storage in timestamptz column
+        const [year, month, day] = scheduledDate.split('-').map(Number)
+        const [hour, minute] = scheduledTime.split(':').map(Number)
+        const localDate = new Date(year, month - 1, day, hour, minute, 0)
+        payload.scheduled_at = localDate.toISOString()
       }
 
       if (sendType === 'smart_spacing') {

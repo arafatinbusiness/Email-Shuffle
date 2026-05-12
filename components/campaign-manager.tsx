@@ -131,8 +131,8 @@ export function CampaignManager() {
   }
 
   // Helper to format a timestamp string for display
-  // The DB stores timestamps as "timestamp without time zone" in the server's local time (GMT+6)
-  // The API returns them as ISO strings. We display them directly in local time.
+  // The DB stores timestamps as "timestamptz" (UTC). The API returns them as ISO strings with Z.
+  // new Date() correctly converts UTC to the user's local timezone.
   const formatDate = (dateStr: string) => {
     return new Date(dateStr).toLocaleString()
   }
