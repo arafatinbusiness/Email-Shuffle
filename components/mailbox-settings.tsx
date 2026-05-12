@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Mail, Settings, Check, X, RefreshCw, Eye, EyeOff, Trash2 } from 'lucide-react'
+import { Mail, Settings, Check, X, RefreshCw, Eye, EyeOff, Trash2, ArrowLeft } from 'lucide-react'
 import { toast } from 'sonner'
 import { SPACEMAIL_IMAP_HOST, SPACEMAIL_SMTP_HOST, DEFAULT_IMAP_PORT, DEFAULT_SMTP_PORT } from '@/lib/mailbox-types'
 
@@ -151,11 +151,19 @@ export function MailboxSettings({ onBack }: MailboxSettingsProps) {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-lg font-semibold">Mailbox Settings</h2>
-          <p className="text-sm text-muted-foreground">
-            Connect your SpaceMail or other IMAP/SMTP email account
-          </p>
+        <div className="flex items-center gap-3">
+          {onBack && (
+            <Button variant="ghost" size="sm" onClick={onBack}>
+              <ArrowLeft className="h-4 w-4 mr-1" />
+              Back to Inbox
+            </Button>
+          )}
+          <div>
+            <h2 className="text-lg font-semibold">Mailbox Settings</h2>
+            <p className="text-sm text-muted-foreground">
+              Connect your SpaceMail or other IMAP/SMTP email account
+            </p>
+          </div>
         </div>
         {account && (
           <Badge variant="outline" className="text-emerald-500 border-emerald-500/50">
