@@ -61,126 +61,124 @@ export async function POST() {
           UPDATE email_campaigns SET status = 'sending' WHERE id = ${campaign.id}
         `
 
+        // Send only ONE recipient per polling cycle to enforce gaps naturally
+        // The polling runs every 30s, so each cycle sends at most 1 email
+        const recipient = recipients[0]
         let sentCount = 0
         let failedCount = 0
 
-        for (let i = 0; i < recipients.length; i++) {
-          const recipient = recipients[i]
-
-          // Check if campaign was paused or cancelled
-          const currentCampaign = await sql`
-            SELECT * FROM email_campaigns WHERE id = ${campaign.id}
-          `
-          if (currentCampaign.length === 0) break
-          const camp = currentCampaign[0]
-          if (camp.status === 'paused' || camp.status === 'cancelled') {
-            break
-          }
-
-          // Check daily cap
-          const capReached = await checkDailyCap(sql, campaign.id, camp)
-          if (capReached) {
-            console.log(`Daily cap reached for campaign ${campaign.id}. Stopping for now.`)
-            break
-          }
-
-          // Check business hours
-          if (camp.business_hours_only && !isWithinBusinessHours(camp)) {
-            console.log(`Outside business hours for campaign ${campaign.id}. Stopping for now.`)
-            break
-          }
-
-          try {
-            const personalizedSubject = personalizeText(campaign.subject, recipient)
-            const personalizedBody = personalizeText(campaign.body, recipient)
-            const bodyWithSignature = appendSignature(personalizedBody, campaign.signature, config.signature || null)
-
-            const result = await sendEmail(
-              config,
-              recipient.email,
-              personalizedSubject,
-              bodyWithSignature,
-              undefined,
-              undefined,
-              senderEmail
-            )
-
-            // Create thread
-            const threadResult = await sql`
-              INSERT INTO email_threads (user_id, subject, last_message_at)
-              VALUES (${campaign.user_id}, ${personalizedSubject}, NOW())
-              RETURNING id
-            `
-            const threadId = threadResult[0].id
-
-            await sql`
-              UPDATE campaign_recipients
-              SET status = 'sent', sent_at = NOW(), message_id = ${result.messageId}
-              WHERE id = ${recipient.id}
-            `
-
-            await saveEmailToDb(
-              campaign.user_id,
-              threadId,
-              'outgoing',
-              personalizedSubject,
-              personalizedBody,
-              null,
-              senderEmail,
-              recipient.email,
-              result.messageId,
-              null,
-              null,
-              true,
-              new Date(),
-              'synced'
-            )
-
-            await sql`
-              UPDATE leads SET last_email_sent = NOW(), status = CASE WHEN status = 'cold' THEN 'contacted' ELSE status END
-              WHERE id = ${recipient.lead_id}
-            `
-
-            sentCount++
-
-            // Update today's sent count for daily cap tracking
-            if (camp.daily_cap && camp.daily_cap > 0) {
-              await sql`
-                UPDATE email_campaigns
-                SET today_sent_count = today_sent_count + 1
-                WHERE id = ${campaign.id}
-              `
-            }
-          } catch (error: any) {
-            console.error(`Failed to send to ${recipient.email}:`, error)
-            await sql`
-              UPDATE campaign_recipients
-              SET status = 'failed', error_message = ${error.message}
-              WHERE id = ${recipient.id}
-            `
-            failedCount++
-          }
-
-          // Update campaign progress
-          await sql`
-            UPDATE email_campaigns
-            SET sent_count = sent_count + 1
-            WHERE id = ${campaign.id}
-          `
-
-          // Wait for calculated delay if not the last email
-          if (i < recipients.length - 1) {
-            const delayMs = calculateDelay(camp)
-            await new Promise(resolve => setTimeout(resolve, delayMs))
-          }
+        // Check if campaign was paused or cancelled
+        const currentCampaign = await sql`
+          SELECT * FROM email_campaigns WHERE id = ${campaign.id}
+        `
+        if (currentCampaign.length === 0) continue
+        const camp = currentCampaign[0]
+        if (camp.status === 'paused' || camp.status === 'cancelled') {
+          continue
         }
 
+        // Check daily cap
+        const capReached = await checkDailyCap(sql, campaign.id, camp)
+        if (capReached) {
+          console.log(`Daily cap reached for campaign ${campaign.id}. Stopping for now.`)
+          // Don't mark as completed - will resume tomorrow
+          continue
+        }
+
+        // Check business hours
+        if (camp.business_hours_only && !isWithinBusinessHours(camp)) {
+          console.log(`Outside business hours for campaign ${campaign.id}. Stopping for now.`)
+          continue
+        }
+
+        try {
+          const personalizedSubject = personalizeText(campaign.subject, recipient)
+          const personalizedBody = personalizeText(campaign.body, recipient)
+          const bodyWithSignature = appendSignature(personalizedBody, campaign.signature, config.signature || null)
+
+          const result = await sendEmail(
+            config,
+            recipient.email,
+            personalizedSubject,
+            bodyWithSignature,
+            undefined,
+            undefined,
+            senderEmail
+          )
+
+          // Create thread
+          const threadResult = await sql`
+            INSERT INTO email_threads (user_id, subject, last_message_at)
+            VALUES (${campaign.user_id}, ${personalizedSubject}, NOW())
+            RETURNING id
+          `
+          const threadId = threadResult[0].id
+
+          await sql`
+            UPDATE campaign_recipients
+            SET status = 'sent', sent_at = NOW(), message_id = ${result.messageId}
+            WHERE id = ${recipient.id}
+          `
+
+          await saveEmailToDb(
+            campaign.user_id,
+            threadId,
+            'outgoing',
+            personalizedSubject,
+            personalizedBody,
+            null,
+            senderEmail,
+            recipient.email,
+            result.messageId,
+            null,
+            null,
+            true,
+            new Date(),
+            'synced'
+          )
+
+          await sql`
+            UPDATE leads SET last_email_sent = NOW(), status = CASE WHEN status = 'cold' THEN 'contacted' ELSE status END
+            WHERE id = ${recipient.lead_id}
+          `
+
+          sentCount++
+
+          // Update today's sent count for daily cap tracking
+          if (camp.daily_cap && camp.daily_cap > 0) {
+            await sql`
+              UPDATE email_campaigns
+              SET today_sent_count = today_sent_count + 1
+              WHERE id = ${campaign.id}
+            `
+          }
+        } catch (error: any) {
+          console.error(`Failed to send to ${recipient.email}:`, error)
+          await sql`
+            UPDATE campaign_recipients
+            SET status = 'failed', error_message = ${error.message}
+            WHERE id = ${recipient.id}
+          `
+          failedCount++
+        }
+
+        // Update campaign progress
         await sql`
           UPDATE email_campaigns
-          SET sent_count = sent_count + ${sentCount}, failed_count = failed_count + ${failedCount},
-              status = 'completed'
+          SET sent_count = sent_count + ${sentCount}, failed_count = failed_count + ${failedCount}
           WHERE id = ${campaign.id}
         `
+
+        // Check if all recipients have been processed
+        const remainingRecipients = await sql`
+          SELECT COUNT(*) as count FROM campaign_recipients
+          WHERE campaign_id = ${campaign.id} AND status = 'pending'
+        `
+        if (remainingRecipients[0].count === 0) {
+          await sql`
+            UPDATE email_campaigns SET status = 'completed' WHERE id = ${campaign.id}
+          `
+        }
 
         processed++
       } catch (error) {
