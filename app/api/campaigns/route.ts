@@ -60,10 +60,13 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'At least one lead must be selected' }, { status: 400 })
     }
 
+    // Determine initial status based on send_type
+    const initialStatus = send_type === 'scheduled' ? 'scheduled' : 'draft'
+
     // Start a transaction
     const campaign = await sql`
-      INSERT INTO email_campaigns (user_id, name, subject, body, send_type, scheduled_at, gap_minutes, gap_min_max, business_hours_only, daily_cap, business_hours_start, business_hours_end, total_recipients, signature, from_email)
-      VALUES (${userId}, ${name}, ${subject}, ${campaignBody}, ${send_type}, ${scheduled_at || null}, ${gap_minutes}, ${gap_min_max}, ${business_hours_only}, ${daily_cap}, ${business_hours_start}, ${business_hours_end}, ${lead_ids.length}, ${signature || null}, ${from_email || null})
+      INSERT INTO email_campaigns (user_id, name, subject, body, send_type, status, scheduled_at, gap_minutes, gap_min_max, business_hours_only, daily_cap, business_hours_start, business_hours_end, total_recipients, signature, from_email)
+      VALUES (${userId}, ${name}, ${subject}, ${campaignBody}, ${send_type}, ${initialStatus}, ${scheduled_at || null}, ${gap_minutes}, ${gap_min_max}, ${business_hours_only}, ${daily_cap}, ${business_hours_start}, ${business_hours_end}, ${lead_ids.length}, ${signature || null}, ${from_email || null})
       RETURNING *
     `
 

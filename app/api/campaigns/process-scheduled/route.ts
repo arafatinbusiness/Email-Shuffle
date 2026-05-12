@@ -9,12 +9,16 @@ export async function POST() {
     const sql = getDb()
 
     // Find campaigns that are scheduled and ready to send
+    // Also include smart_spacing campaigns that are in 'scheduled' status
     const campaigns = await sql`
       SELECT * FROM email_campaigns
       WHERE status = 'scheduled'
-        AND send_type = 'scheduled'
-        AND scheduled_at <= NOW()
-      ORDER BY scheduled_at ASC
+        AND (
+          (send_type = 'scheduled' AND scheduled_at <= NOW())
+          OR
+          (send_type = 'smart_spacing')
+        )
+      ORDER BY scheduled_at ASC NULLS LAST
       LIMIT 5
     `
 
@@ -33,7 +37,8 @@ export async function POST() {
           continue
         }
 
-        const senderEmail = config.send_as || config.email
+        // Use campaign's from_email if set, otherwise fall back to mailbox send_as or main email
+        const senderEmail = campaign.from_email || config.send_as || config.email
 
         // Get pending recipients
         const recipients = await sql`
@@ -63,12 +68,13 @@ export async function POST() {
           try {
             const personalizedSubject = personalizeText(campaign.subject, recipient)
             const personalizedBody = personalizeText(campaign.body, recipient)
+            const bodyWithSignature = appendSignature(personalizedBody, campaign.signature, config.signature || null)
 
             const result = await sendEmail(
               config,
               recipient.email,
               personalizedSubject,
-              personalizedBody,
+              bodyWithSignature,
               undefined,
               undefined,
               senderEmail
@@ -156,4 +162,12 @@ function personalizeText(text: string, recipient: any): string {
     .replace(/{{email}}/gi, recipient.email)
     .replace(/{{company}}/gi, recipient.company_name || 'your company')
     .replace(/{{company_name}}/gi, recipient.company_name || 'your company')
+}
+
+// Append signature to email body
+function appendSignature(body: string, campaignSignature: string | null, mailboxSignature: string | null): string {
+  // Campaign signature takes priority over mailbox signature
+  const sig = campaignSignature || mailboxSignature
+  if (!sig) return body
+  return body + '\n\n' + sig
 }
