@@ -1,50 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { db } from '@/lib/firebase-admin'
+import { queryCollection } from '@/lib/firebase-admin'
 import nodemailer from 'nodemailer'
 import { getDb } from '@/lib/db'
+import { decryptPassword } from '@/lib/mailbox-crypto'
 
-// Create SMTP transporter using the same credentials as the mailbox system
-async function getTransporter() {
-  const pool = await getDb()
-  const result = await pool.query(
-    'SELECT email, smtp_host, smtp_port, encrypted_password FROM mailbox_accounts LIMIT 1'
-  )
-
-  if (result.rows.length === 0) {
-    throw new Error('No mailbox account configured')
-  }
-
-  const { email, smtp_host, smtp_port, encrypted_password } = result.rows[0]
-
-  // Decrypt password
-  const crypto = require('crypto')
-  const key = process.env.MAILBOX_ENCRYPTION_KEY
-  if (!key) throw new Error('MAILBOX_ENCRYPTION_KEY not set')
-
-  const keyBuffer = key.length === 64
-    ? Buffer.from(key, 'hex')
-    : crypto.createHash('sha256').update(key).digest()
-
-  const parts = encrypted_password.split(':')
-  const iv = Buffer.from(parts[0], 'hex')
-  const tag = Buffer.from(parts[1], 'hex')
-  const enc = parts[2]
-
-  const decipher = crypto.createDecipheriv('aes-256-gcm', keyBuffer, iv)
-  decipher.setAuthTag(tag)
-  let password = decipher.update(enc, 'hex', 'utf8')
-  password += decipher.final('utf8')
-
-  return nodemailer.createTransport({
-    host: smtp_host,
-    port: smtp_port,
-    secure: smtp_port === 465,
-    auth: { user: email, pass: password },
-  })
-}
-
-// Track the last checked document ID to avoid sending duplicates
-let lastCheckedId: string | null = null
+// Track the last processed document ID to avoid duplicates
+let lastProcessedDocId: string | null = null
 
 export async function GET(request: NextRequest) {
   // Verify cron secret to prevent unauthorized access
@@ -56,39 +17,56 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    // Query Firestore for contacts ordered by timestamp
-    const contactsRef = db.collection('contacts')
-    let query = contactsRef.orderBy('timestamp', 'asc').limit(10)
+    // Query Firestore for contacts
+    const result = await queryCollection('contacts', 'name', 10)
 
-    // If we have a last checked ID, start after it
-    if (lastCheckedId) {
-      const lastDoc = await contactsRef.doc(lastCheckedId).get()
-      if (lastDoc.exists) {
-        query = query.startAfter(lastDoc)
-      }
-    }
-
-    const snapshot = await query.get()
-
-    if (snapshot.empty) {
+    if (result.documents.length === 0) {
       return NextResponse.json({ message: 'No new contacts', count: 0 })
     }
 
-    // Get the SMTP transporter
-    const transporter = await getTransporter()
-    const supportEmail = (await transporter.options.auth).user as string
+    // Filter out already processed documents
+    const newDocs = lastProcessedDocId
+      ? result.documents.filter(doc => doc.id !== lastProcessedDocId)
+      : result.documents
+
+    if (newDocs.length === 0) {
+      return NextResponse.json({ message: 'No new contacts to process', count: 0 })
+    }
+
+    // Get mailbox account from database
+    const sql = getDb()
+    const accounts = await sql`
+      SELECT id, email, smtp_host, smtp_port, encrypted_password, send_as
+      FROM mailbox_accounts
+      LIMIT 1
+    `
+
+    if (accounts.length === 0) {
+      return NextResponse.json({ error: 'No mailbox account configured' }, { status: 500 })
+    }
+
+    const account = accounts[0] as { email: string; smtp_host: string; smtp_port: number; encrypted_password: string; send_as: string | null }
+    const password = decryptPassword(account.encrypted_password)
+
+    const transporter = nodemailer.createTransport({
+      host: account.smtp_host,
+      port: account.smtp_port,
+      secure: account.smtp_port === 465,
+      auth: {
+        user: account.email,
+        pass: password,
+      },
+    })
 
     let sentCount = 0
-    let lastDocId: string | null = null
 
-    for (const doc of snapshot.docs) {
-      const data = doc.data()
-      const { name, email, message, timestamp } = data
+    for (const doc of newDocs) {
+      const { name, email, message, timestamp } = doc.data
 
-      // Send notification email to support@labinitial.com
+      // Send notification email to support email
       await transporter.sendMail({
-        from: `"Labinitial Contact Form" <${supportEmail}>`,
-        to: supportEmail,
+        from: `"Labinitial Contact Form" <${account.email}>`,
+        to: account.email,
         subject: `New Contact Form Submission from ${name || 'Unknown'}`,
         html: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -110,7 +88,7 @@ export async function GET(request: NextRequest) {
                 <tr>
                   <td style="padding: 8px; border-bottom: 1px solid #ddd; font-weight: bold;">Date:</td>
                   <td style="padding: 8px; border-bottom: 1px solid #ddd;">
-                    ${timestamp?.toDate ? new Date(timestamp.toDate()).toLocaleString() : new Date().toLocaleString()}
+                    ${timestamp ? new Date(timestamp).toLocaleString() : new Date().toLocaleString()}
                   </td>
                 </tr>
               </table>
@@ -129,12 +107,7 @@ export async function GET(request: NextRequest) {
       })
 
       sentCount++
-      lastDocId = doc.id
-    }
-
-    // Update the last checked ID
-    if (lastDocId) {
-      lastCheckedId = lastDocId
+      lastProcessedDocId = doc.id
     }
 
     return NextResponse.json({
