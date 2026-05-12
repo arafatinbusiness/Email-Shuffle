@@ -82,7 +82,7 @@ export async function POST() {
 
             // Create thread
             const threadResult = await sql`
-              INSERT INTO email_threads (user_id, subject, last_activity_at)
+              INSERT INTO email_threads (user_id, subject, last_message_at)
               VALUES (${campaign.user_id}, ${personalizedSubject}, NOW())
               RETURNING id
             `

@@ -93,7 +93,7 @@ export async function POST(request: Request) {
 
           // Create a thread for this campaign email
           const threadResult = await sql`
-            INSERT INTO email_threads (user_id, subject, last_activity_at)
+            INSERT INTO email_threads (user_id, subject, last_message_at)
             VALUES (${userId}, ${personalizedSubject}, NOW())
             RETURNING id
           `
@@ -365,7 +365,7 @@ async function processScheduledCampaign(campaignId: number, userId: number) {
 
         // Create a thread for this campaign email
         const threadResult = await sql`
-          INSERT INTO email_threads (user_id, subject, last_activity_at)
+          INSERT INTO email_threads (user_id, subject, last_message_at)
           VALUES (${userId}, ${personalizedSubject}, NOW())
           RETURNING id
         `

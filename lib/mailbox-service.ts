@@ -113,9 +113,10 @@ export async function sendEmail(
     }
 
     if (sentFolderPath) {
-      // Append the email directly to the Sent folder with \Seen and \Sent flags
+      // Append the email directly to the Sent folder with \Seen flag
+      // \Sent is not a standard IMAP system flag, so we only use \Seen
       // append(path, content, flags?, date?)
-      await client.append(sentFolderPath, rawEmail, ['\\Seen', '\\Sent'], new Date())
+      await client.append(sentFolderPath, rawEmail, ['\\Seen'], new Date())
     } else {
       console.warn('Could not find Sent folder to save copy. Available folders:', mailboxes.map(m => m.path).join(', '))
     }
