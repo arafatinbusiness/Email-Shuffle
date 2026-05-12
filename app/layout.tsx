@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
 import { Toaster } from 'sonner'
+import { SessionProvider } from '@/components/session-provider'
 import './globals.css'
 
 const inter = Inter({ 
@@ -39,9 +40,11 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark bg-background">
       <body className={`${inter.variable} font-sans antialiased`}>
-        {children}
-        <Toaster richColors position="top-right" />
-        {process.env.NODE_ENV === 'production' && <Analytics />}
+        <SessionProvider>
+          {children}
+          <Toaster richColors position="top-right" />
+          {process.env.NODE_ENV === 'production' && <Analytics />}
+        </SessionProvider>
       </body>
     </html>
   )

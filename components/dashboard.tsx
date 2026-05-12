@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef } from 'react'
+import { useSession, signOut } from 'next-auth/react'
 import useSWR, { mutate } from 'swr'
 import { Lead, LeadStatus, LeadLayer } from '@/lib/types'
 import { calculateNextFollowUp, NEXT_LAYER } from '@/lib/workflow-rules'
@@ -20,6 +21,14 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { 
   Plus, 
   Search, 
@@ -30,7 +39,9 @@ import {
   Upload,
   LayoutDashboard,
   ListTodo,
-  Users
+  Users,
+  LogOut,
+  User
 } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -40,6 +51,7 @@ const fetcher = (url: string) => fetch(url).then(res => {
 })
 
 export function Dashboard() {
+  const { data: session } = useSession()
   const { data: leads = [], error, isLoading } = useSWR<Lead[]>('/api/leads', fetcher)
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null)
   const [isFormOpen, setIsFormOpen] = useState(false)
@@ -256,6 +268,26 @@ export function Dashboard() {
                 <Plus className="h-4 w-4 mr-2" />
                 Add Lead
               </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="rounded-full">
+                    <User className="h-5 w-5" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                  <DropdownMenuLabel>
+                    <div className="flex flex-col space-y-1">
+                      <p className="text-sm font-medium">{session?.user?.name || 'User'}</p>
+                      <p className="text-xs text-muted-foreground">{session?.user?.email}</p>
+                    </div>
+                  </DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => signOut({ callbackUrl: '/login' })} className="text-red-600 cursor-pointer">
+                    <LogOut className="h-4 w-4 mr-2" />
+                    Sign Out
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </div>
         </div>

@@ -1,11 +1,19 @@
 import { NextResponse } from 'next/server'
 import { getDb } from '@/lib/db'
+import { auth } from '@/lib/auth'
 
 export async function GET() {
+  const session = await auth()
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
   try {
     const sql = getDb()
+    const userId = parseInt(session.user.id)
     const leads = await sql`
       SELECT * FROM leads 
+      WHERE user_id = ${userId}
       ORDER BY 
         CASE 
           WHEN next_follow_up IS NOT NULL AND next_follow_up <= CURRENT_DATE THEN 0
@@ -23,8 +31,14 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  const session = await auth()
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
   try {
     const sql = getDb()
+    const userId = parseInt(session.user.id)
     const body = await request.json()
     const {
       first_name,
@@ -44,11 +58,11 @@ export async function POST(request: Request) {
 
     const result = await sql`
       INSERT INTO leads (
-        first_name, last_name, email, company_name, website,
+        user_id, first_name, last_name, email, company_name, website,
         status, current_layer, positive_points, improvements,
         fb_ads_notes, pixel_status, custom_notes, next_follow_up
       ) VALUES (
-        ${first_name}, ${last_name || null}, ${email}, ${company_name || null}, ${website || null},
+        ${userId}, ${first_name}, ${last_name || null}, ${email}, ${company_name || null}, ${website || null},
         ${status}, ${current_layer}, ${positive_points || null}, ${improvements || null},
         ${fb_ads_notes || null}, ${pixel_status || null}, ${custom_notes || null}, ${next_follow_up || null}
       )
