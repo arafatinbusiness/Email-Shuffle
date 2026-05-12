@@ -85,6 +85,9 @@ export function MailboxInbox({ onOpenSettings }: MailboxInboxProps) {
   const [accountEmail, setAccountEmail] = useState('')
   const [accountAlias, setAccountAlias] = useState('')
   const [composeFrom, setComposeFrom] = useState('')
+  const [composeSuggestions, setComposeSuggestions] = useState<{ name: string; email: string }[]>([])
+  const [composeShowSuggestions, setComposeShowSuggestions] = useState(false)
+  const [composeToFocused, setComposeToFocused] = useState(false)
 
   const fetchThreads = useCallback(async (unreadOnly = false) => {
     setLoading(true)
@@ -297,6 +300,25 @@ export function MailboxInbox({ onOpenSettings }: MailboxInboxProps) {
                   setAccountAlias(data.send_as || '')
                   setComposeFrom(data.send_as || data.email)
                 }
+              }
+            } catch {
+              // Silently fail
+            }
+            // Fetch contacts for autocomplete
+            try {
+              const res = await fetch('/api/leads?limit=500')
+              if (res.ok) {
+                const data = await res.json()
+                const contacts: { name: string; email: string }[] = []
+                for (const lead of data) {
+                  if (lead.email && lead.email.includes('@')) {
+                    contacts.push({
+                      name: `${lead.first_name || ''} ${lead.last_name || ''}`.trim() || lead.email,
+                      email: lead.email,
+                    })
+                  }
+                }
+                setComposeSuggestions(contacts)
               }
             } catch {
               // Silently fail
@@ -549,14 +571,65 @@ export function MailboxInbox({ onOpenSettings }: MailboxInboxProps) {
                   )}
                 </select>
               </div>
-              <div className="space-y-1">
+              <div className="space-y-1 relative">
                 <label className="text-xs text-muted-foreground font-medium">To</label>
                 <Input
                   value={composeTo}
-                  onChange={(e) => setComposeTo(e.target.value)}
-                  placeholder="recipient@example.com"
-                  type="email"
+                  onChange={(e) => {
+                    setComposeTo(e.target.value)
+                    if (e.target.value.length >= 1) {
+                      const query = e.target.value.toLowerCase()
+                      const filtered = composeSuggestions.filter(
+                        s => s.name.toLowerCase().includes(query) || s.email.toLowerCase().includes(query)
+                      )
+                      setComposeShowSuggestions(filtered.length > 0)
+                    } else {
+                      setComposeShowSuggestions(false)
+                    }
+                  }}
+                  onFocus={() => {
+                    setComposeToFocused(true)
+                    if (composeTo.length >= 1) {
+                      const query = composeTo.toLowerCase()
+                      const filtered = composeSuggestions.filter(
+                        s => s.name.toLowerCase().includes(query) || s.email.toLowerCase().includes(query)
+                      )
+                      setComposeShowSuggestions(filtered.length > 0)
+                    }
+                  }}
+                  onBlur={() => {
+                    setTimeout(() => {
+                      setComposeToFocused(false)
+                      setComposeShowSuggestions(false)
+                    }, 200)
+                  }}
+                  placeholder="Type name or email..."
+                  type="text"
                 />
+                {composeShowSuggestions && composeToFocused && (
+                  <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-popover border rounded-md shadow-lg max-h-48 overflow-y-auto">
+                    {composeSuggestions
+                      .filter(s => {
+                        const query = composeTo.toLowerCase()
+                        return s.name.toLowerCase().includes(query) || s.email.toLowerCase().includes(query)
+                      })
+                      .slice(0, 10)
+                      .map((s, i) => (
+                        <button
+                          key={i}
+                          className="w-full text-left px-3 py-2 text-sm hover:bg-muted transition-colors flex items-center gap-2"
+                          onMouseDown={() => {
+                            setComposeTo(s.email)
+                            setComposeShowSuggestions(false)
+                          }}
+                        >
+                          <User className="h-3 w-3 text-muted-foreground shrink-0" />
+                          <span className="font-medium truncate">{s.name}</span>
+                          <span className="text-muted-foreground truncate text-xs">{s.email}</span>
+                        </button>
+                      ))}
+                  </div>
+                )}
               </div>
               <div className="space-y-1">
                 <label className="text-xs text-muted-foreground font-medium">Subject</label>
