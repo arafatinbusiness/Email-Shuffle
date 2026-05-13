@@ -150,6 +150,21 @@ export function CampaignManager() {
     return new Date(dateStr).toLocaleString()
   }
 
+  // Format gap from seconds to human-readable string
+  // gap_minutes is stored as seconds in the DB
+  const formatGap = (seconds: number): string => {
+    if (seconds < 60) {
+      return `${seconds}s gap`
+    }
+    const mins = Math.floor(seconds / 60)
+    const secs = seconds % 60
+    if (secs === 0) {
+      return `${mins}min gap`
+    }
+    return `${mins}min ${secs}s gap`
+  }
+
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -220,8 +235,9 @@ export function CampaignManager() {
                     )}
                     <span className="flex items-center gap-1">
                       <Clock className="h-3 w-3" />
-                      {campaign.send_type === 'instant' ? 'Instant' : campaign.send_type === 'scheduled' ? 'Scheduled' : `${campaign.gap_minutes}min gap`}
+                      {campaign.send_type === 'instant' ? 'Instant' : campaign.send_type === 'scheduled' ? 'Scheduled' : formatGap(campaign.gap_minutes)}
                     </span>
+
                   </div>
                   <div className="flex items-center gap-1">
                     {campaign.status === 'draft' && (

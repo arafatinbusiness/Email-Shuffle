@@ -228,6 +228,8 @@ export function Dashboard() {
 
       let successCount = 0
       let errorCount = 0
+      let customerCount = 0
+      let leadCount = 0
 
       for (const leadData of parsedLeads) {
         try {
@@ -237,16 +239,20 @@ export function Dashboard() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ ...leadData, upsert: true }),
           })
-          if (res.ok) successCount++
-          else errorCount++
+          if (res.ok) {
+            successCount++
+            if (leadData.lead_type === 'customer') customerCount++
+            else leadCount++
+          } else errorCount++
         } catch {
           errorCount++
         }
       }
 
       await mutate('/api/leads')
-      const updatedCount = parsedLeads.filter(l => l.email).length
-      toast.success(`Imported/Updated ${successCount} leads${errorCount > 0 ? ` (${errorCount} failed)` : ''}`)
+      const typeInfo = customerCount > 0 ? ` (${customerCount} customers, ${leadCount} leads)` : ''
+      toast.success(`Imported/Updated ${successCount} leads${typeInfo}${errorCount > 0 ? ` (${errorCount} failed)` : ''}`)
+
     }
 
     if (isXLSX) {

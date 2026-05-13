@@ -46,12 +46,13 @@ export async function POST(request: Request) {
     const recipients = await sql`
       SELECT cr.*, l.first_name, l.last_name, l.company_name, l.website,
              l.positive_points, l.improvements, l.fb_ads_notes, l.pixel_status,
-             l.custom_notes, l.current_website_updates
+             l.custom_notes
       FROM campaign_recipients cr
       JOIN leads l ON l.id = cr.lead_id
       WHERE cr.campaign_id = ${campaign_id} AND cr.status = 'pending'
       ORDER BY cr.id
     `
+
 
 
     if (recipients.length === 0) {
@@ -153,22 +154,20 @@ export async function POST(request: Request) {
         total: recipients.length,
       })
     } else {
-      // For scheduled or random_gap, start the async sending process
+      // For scheduled or random_gap, set status to 'scheduled'
+      // The cron job (POST /api/campaigns/process-scheduled) will pick it up
+      // and send one email per cycle, naturally enforcing the gap
       await sql`
         UPDATE email_campaigns SET status = 'scheduled' WHERE id = ${campaign_id}
       `
 
-      // Start async processing in the background
-      processScheduledCampaign(campaign_id, userId).catch(err => {
-        console.error('Background campaign processing failed:', err)
-      })
-
       return NextResponse.json({
         success: true,
-        message: `Campaign scheduled with ${recipients.length} recipients. Emails will be sent with smart spacing.`,
+        message: `Campaign scheduled with ${recipients.length} recipients. Emails will be sent with smart spacing via cron.`,
         campaign,
       })
     }
+
   } catch (error) {
     console.error('Failed to send campaign:', error)
     return NextResponse.json({
@@ -196,8 +195,8 @@ function personalizeText(text: string, recipient: any): string {
     fb_ads_notes: recipient.fb_ads_notes,
     pixel_status: recipient.pixel_status,
     custom_notes: recipient.custom_notes,
-    current_website_updates: recipient.current_website_updates,
   }
+
 
   for (const [field, value] of Object.entries(customFields)) {
     const regex = new RegExp(`{{${field}}}`, 'gi')
@@ -302,35 +301,61 @@ async function checkDailyCap(sql: any, campaignId: number, campaign: any): Promi
   return (campaign.today_sent_count || 0) >= campaign.daily_cap
 }
 
+// Helper to retry SQL queries on connection errors (NeonDB serverless connections can drop)
+async function retrySql<T>(fn: () => Promise<T>, retries = 3, delay = 2000): Promise<T> {
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      return await fn()
+    } catch (error: any) {
+      const isConnectionError =
+        error?.message?.includes('fetch failed') ||
+        error?.message?.includes('SocketError') ||
+        error?.message?.includes('other side closed') ||
+        error?.message?.includes('connection') ||
+        error?.code === 'UND_ERR_SOCKET'
+
+      if (isConnectionError && attempt < retries) {
+        console.log(`Database connection error (attempt ${attempt}/${retries}). Retrying in ${delay}ms...`)
+        await new Promise(resolve => setTimeout(resolve, delay))
+        delay *= 2 // Exponential backoff
+      } else {
+        throw error
+      }
+    }
+  }
+  throw new Error('Retry exhausted')
+}
+
 // Background processor for scheduled/random_gap campaigns
 async function processScheduledCampaign(campaignId: number, userId: number) {
   const sql = getDb()
 
   try {
-    const campaigns = await sql`
+    const campaigns = await retrySql(() => sql`
       SELECT * FROM email_campaigns WHERE id = ${campaignId} AND user_id = ${userId}
-    `
+    `)
     if (campaigns.length === 0) return
     const campaign = campaigns[0]
 
     const config = await getMailboxConfig(userId)
     if (!config) {
-      await sql`UPDATE email_campaigns SET status = 'failed' WHERE id = ${campaignId}`
+      await retrySql(() => sql`UPDATE email_campaigns SET status = 'failed' WHERE id = ${campaignId}`)
       return
     }
 
     const senderEmail = campaign.from_email || config.send_as || config.email
 
     // Get pending recipients with all lead fields for personalization
-    const recipients = await sql`
+    const recipients = await retrySql(() => sql`
       SELECT cr.*, l.first_name, l.last_name, l.company_name, l.website,
              l.positive_points, l.improvements, l.fb_ads_notes, l.pixel_status,
-             l.custom_notes, l.current_website_updates
+             l.custom_notes
       FROM campaign_recipients cr
       JOIN leads l ON l.id = cr.lead_id
       WHERE cr.campaign_id = ${campaignId} AND cr.status = 'pending'
       ORDER BY cr.id
-    `
+    `)
+
 
 
     let sentCount = 0
@@ -338,9 +363,9 @@ async function processScheduledCampaign(campaignId: number, userId: number) {
 
     for (let i = 0; i < recipients.length; i++) {
       // Check if campaign was paused or cancelled
-      const currentCampaign = await sql`
+      const currentCampaign = await retrySql(() => sql`
         SELECT * FROM email_campaigns WHERE id = ${campaignId}
-      `
+      `)
       if (currentCampaign.length === 0) return
       const camp = currentCampaign[0]
       if (camp.status === 'paused' || camp.status === 'cancelled') {
@@ -389,18 +414,18 @@ async function processScheduledCampaign(campaignId: number, userId: number) {
         )
 
         // Create a thread for this campaign email
-        const threadResult = await sql`
+        const threadResult = await retrySql(() => sql`
           INSERT INTO email_threads (user_id, subject, last_message_at)
           VALUES (${userId}, ${personalizedSubject}, NOW())
           RETURNING id
-        `
+        `)
         const threadId = threadResult[0].id
 
-        await sql`
+        await retrySql(() => sql`
           UPDATE campaign_recipients
           SET status = 'sent', sent_at = NOW(), message_id = ${result.messageId}
           WHERE id = ${recipient.id}
-        `
+        `)
 
         await saveEmailToDb(
           userId,
@@ -419,37 +444,37 @@ async function processScheduledCampaign(campaignId: number, userId: number) {
           'synced'
         )
 
-        await sql`
+        await retrySql(() => sql`
           UPDATE leads SET last_email_sent = NOW(), status = CASE WHEN status = 'cold' THEN 'contacted' ELSE status END
           WHERE id = ${recipient.lead_id}
-        `
+        `)
 
         sentCount++
         
         // Update today's sent count for daily cap tracking
         if (camp.daily_cap && camp.daily_cap > 0) {
-          await sql`
+          await retrySql(() => sql`
             UPDATE email_campaigns
             SET today_sent_count = today_sent_count + 1
             WHERE id = ${campaignId}
-          `
+          `)
         }
       } catch (error: any) {
         console.error(`Failed to send to ${recipient.email}:`, error)
-        await sql`
+        await retrySql(() => sql`
           UPDATE campaign_recipients
           SET status = 'failed', error_message = ${error.message}
           WHERE id = ${recipient.id}
-        `
+        `)
         failedCount++
       }
 
       // Update campaign progress
-      await sql`
+      await retrySql(() => sql`
         UPDATE email_campaigns
         SET sent_count = sent_count + 1
         WHERE id = ${campaignId}
-      `
+      `)
 
       // Wait for calculated delay if not the last email
       if (i < recipients.length - 1) {
@@ -459,15 +484,20 @@ async function processScheduledCampaign(campaignId: number, userId: number) {
     }
 
     // Mark campaign as completed
-    await sql`
+    await retrySql(() => sql`
       UPDATE email_campaigns
       SET status = 'completed', sent_count = ${sentCount}, failed_count = ${failedCount}
       WHERE id = ${campaignId}
-    `
+    `)
   } catch (error) {
     console.error('Campaign processing error:', error)
-    await sql`
-      UPDATE email_campaigns SET status = 'failed' WHERE id = ${campaignId}
-    `
+    try {
+      await retrySql(() => sql`
+        UPDATE email_campaigns SET status = 'failed' WHERE id = ${campaignId}
+      `)
+    } catch (finalError) {
+      console.error('Failed to update campaign status after error:', finalError)
+    }
   }
 }
+

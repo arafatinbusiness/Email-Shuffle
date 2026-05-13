@@ -44,8 +44,9 @@ export default function NewCampaignPage() {
   const [sendType, setSendType] = useState<'instant' | 'scheduled' | 'smart_spacing'>('instant')
   const [scheduledDate, setScheduledDate] = useState('')
   const [scheduledTime, setScheduledTime] = useState('')
-  const [gapMinutes, setGapMinutes] = useState(3)
-  const [gapMinMax, setGapMinMax] = useState(7)
+  const [gapMinutes, setGapMinutes] = useState(0.5)
+  const [gapMinMax, setGapMinMax] = useState(1)
+
   const [businessHoursOnly, setBusinessHoursOnly] = useState(false)
   const [dailyCap, setDailyCap] = useState(50)
   const [businessHoursStart, setBusinessHoursStart] = useState('09:00')
@@ -136,16 +137,21 @@ export default function NewCampaignPage() {
 
     setIsCreating(true)
     try {
+      // Convert gap from minutes to seconds (database stores integer)
+      // 0.5 min = 30 seconds, 1 min = 60 seconds, etc.
+      const gapSeconds = Math.round(gapMinutes * 60)
+
       const payload: any = {
         name: campaignName,
         subject,
         body,
         send_type: sendType,
-        gap_minutes: gapMinutes,
+        gap_minutes: gapSeconds,
         lead_ids: selectedLeadIds,
         signature: campaignSignature,
         from_email: fromEmail || undefined,
       }
+
 
       if (sendType === 'scheduled') {
         if (!scheduledDate || !scheduledTime) {
@@ -161,7 +167,8 @@ export default function NewCampaignPage() {
       }
 
       if (sendType === 'smart_spacing') {
-        payload.gap_min_max = gapMinMax
+        payload.gap_min_max = Math.round(gapMinMax * 60)
+
         payload.business_hours_only = businessHoursOnly
         payload.daily_cap = dailyCap
         payload.business_hours_start = businessHoursStart
@@ -348,15 +355,50 @@ www.yourcompany.com`}
                     <TabsContent value="smart_spacing" className="mt-0 space-y-3">
                       <div className="grid grid-cols-2 gap-3">
                         <div className="space-y-1">
-                          <Label className="text-xs">Min Delay (min)</Label>
-                          <Input type="number" min={1} max={120} value={gapMinutes} onChange={(e) => setGapMinutes(parseInt(e.target.value) || 3)} />
+                          <Label className="text-xs">Min Delay</Label>
+                          <select
+                            className="flex h-10 w-full rounded-md border border-input bg-background text-foreground px-3 py-2 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                            value={gapMinutes}
+                            onChange={(e) => setGapMinutes(parseFloat(e.target.value))}
+                          >
+                            <option value={0.5}>30 seconds</option>
+                            <option value={1}>1 minute</option>
+                            <option value={1.5}>1 minute 30 seconds</option>
+                            <option value={2}>2 minutes</option>
+                            <option value={2.5}>2 minutes 30 seconds</option>
+                            <option value={3}>3 minutes</option>
+                            <option value={5}>5 minutes</option>
+                            <option value={10}>10 minutes</option>
+                            <option value={15}>15 minutes</option>
+                            <option value={30}>30 minutes</option>
+                            <option value={60}>1 hour</option>
+                          </select>
+
                         </div>
                         <div className="space-y-1">
-                          <Label className="text-xs">Max Delay (min)</Label>
-                          <Input type="number" min={1} max={120} value={gapMinMax} onChange={(e) => setGapMinMax(parseInt(e.target.value) || 7)} />
+                          <Label className="text-xs">Max Delay</Label>
+                          <select
+                            className="flex h-10 w-full rounded-md border border-input bg-background text-foreground px-3 py-2 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                            value={gapMinMax}
+                            onChange={(e) => setGapMinMax(parseFloat(e.target.value))}
+                          >
+
+                            <option value={0.5}>30 seconds</option>
+                            <option value={1}>1 minute</option>
+                            <option value={1.5}>1 minute 30 seconds</option>
+                            <option value={2}>2 minutes</option>
+                            <option value={2.5}>2 minutes 30 seconds</option>
+                            <option value={3}>3 minutes</option>
+                            <option value={5}>5 minutes</option>
+                            <option value={10}>10 minutes</option>
+                            <option value={15}>15 minutes</option>
+                            <option value={30}>30 minutes</option>
+                            <option value={60}>1 hour</option>
+                          </select>
                         </div>
                       </div>
-                      <p className="text-xs text-muted-foreground">Random delay between Min-Max minutes per email.</p>
+                      <p className="text-xs text-muted-foreground">Random delay between Min-Max per email.</p>
+
                       
                       <div className="border-t pt-3 space-y-2">
                         <div className="flex items-center gap-2">

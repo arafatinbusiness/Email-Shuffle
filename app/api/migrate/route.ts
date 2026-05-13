@@ -39,6 +39,16 @@ export async function POST() {
       ALTER TABLE leads ADD COLUMN IF NOT EXISTS current_website_updates TEXT
     `
 
+    // Add next_send_at column to email_campaigns for precise gap enforcement
+    await sql`
+      ALTER TABLE email_campaigns ADD COLUMN IF NOT EXISTS next_send_at TIMESTAMP
+    `
+
+    // Create index for next_send_at for efficient cron queries
+    await sql`
+      CREATE INDEX IF NOT EXISTS idx_email_campaigns_next_send_at ON email_campaigns(next_send_at)
+    `
+
     // Create indexes
     await sql`
       CREATE INDEX IF NOT EXISTS idx_leads_group_id ON leads(group_id)
@@ -47,7 +57,18 @@ export async function POST() {
       CREATE INDEX IF NOT EXISTS idx_leads_import_batch_id ON leads(import_batch_id)
     `
 
+    // Fix campaign_recipients check constraint to allow 'sending' status
+    // The process-scheduled route uses 'sending' as an intermediate status to prevent
+    // duplicate processing by concurrent cron cycles
+    await sql`
+      ALTER TABLE campaign_recipients
+      DROP CONSTRAINT IF EXISTS campaign_recipients_status_check,
+      ADD CONSTRAINT campaign_recipients_status_check
+      CHECK (status IN ('pending', 'sending', 'sent', 'failed', 'skipped'))
+    `
+
     return NextResponse.json({ success: true, message: 'Migration completed successfully' })
+
 
   } catch (error) {
     console.error('Migration failed:', error)

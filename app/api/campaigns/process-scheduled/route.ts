@@ -9,7 +9,6 @@ export async function POST() {
     const sql = getDb()
 
     // Find campaigns that are scheduled and ready to send
-    // Also include smart_spacing campaigns that are in 'scheduled' status
     const campaigns = await sql`
       SELECT * FROM email_campaigns
       WHERE status = 'scheduled'
@@ -40,9 +39,11 @@ export async function POST() {
         // Use campaign's from_email if set, otherwise fall back to mailbox send_as or main email
         const senderEmail = campaign.from_email || config.send_as || config.email
 
-        // Get pending recipients
+        // Get pending recipients with all lead fields for personalization
         const recipients = await sql`
-          SELECT cr.*, l.first_name, l.last_name, l.company_name
+          SELECT cr.*, l.first_name, l.last_name, l.company_name, l.website,
+                 l.positive_points, l.improvements, l.fb_ads_notes, l.pixel_status,
+                 l.custom_notes
           FROM campaign_recipients cr
           JOIN leads l ON l.id = cr.lead_id
           WHERE cr.campaign_id = ${campaign.id} AND cr.status = 'pending'
@@ -55,16 +56,6 @@ export async function POST() {
           `
           continue
         }
-
-        // Update status to sending
-        await sql`
-          UPDATE email_campaigns SET status = 'sending' WHERE id = ${campaign.id}
-        `
-
-        // Send only ONE recipient per polling cycle to enforce gaps naturally
-        const recipient = recipients[0]
-        let sentCount = 0
-        let failedCount = 0
 
         // Check if campaign was paused or cancelled
         const currentCampaign = await sql`
@@ -89,97 +80,108 @@ export async function POST() {
           continue
         }
 
-        // Enforce gap: check if enough time has passed since the last update
-        // For smart_spacing campaigns, ensure the gap has elapsed before sending next email
-        if (camp.send_type === 'smart_spacing' && camp.updated_at) {
-          const lastSentTime = new Date(camp.updated_at).getTime()
-          const now = Date.now()
-          const elapsedMs = now - lastSentTime
-          const requiredGapMs = calculateDelay(camp)
-          if (elapsedMs < requiredGapMs) {
-            // Not enough time has passed, skip this cycle
-            console.log(`Gap not yet elapsed for campaign ${campaign.id}. Elapsed: ${Math.round(elapsedMs / 1000)}s, Required: ${Math.round(requiredGapMs / 1000)}s`)
-            continue
+        // Mark all pending recipients as 'sending' to prevent duplicate processing
+        // by subsequent cron cycles (which run every 30 seconds)
+        await sql`
+          UPDATE campaign_recipients
+          SET status = 'sending'
+          WHERE campaign_id = ${campaign.id} AND status = 'pending'
+        `
+
+        // Process all recipients in this cycle with delays between each
+        let sentCount = 0
+        let failedCount = 0
+
+        for (let i = 0; i < recipients.length; i++) {
+          const recipient = recipients[i]
+
+
+          // Wait for the gap before sending (skip wait for first email)
+          if (i > 0) {
+            const delayMs = calculateDelay(camp)
+            await new Promise(resolve => setTimeout(resolve, delayMs))
           }
-        }
 
-        try {
-          const personalizedSubject = personalizeText(campaign.subject, recipient)
-          const personalizedBody = personalizeText(campaign.body, recipient)
-          const bodyWithSignature = appendSignature(personalizedBody, campaign.signature, config.signature || null)
+          try {
+            const personalizedSubject = personalizeText(campaign.subject, recipient)
+            const personalizedBody = personalizeText(campaign.body, recipient)
+            const bodyWithSignature = appendSignature(personalizedBody, campaign.signature, config.signature || null)
 
-          const result = await sendEmail(
-            config,
-            recipient.email,
-            personalizedSubject,
-            bodyWithSignature,
-            undefined,
-            undefined,
-            senderEmail
-          )
+            const result = await sendEmail(
+              config,
+              recipient.email,
+              personalizedSubject,
+              bodyWithSignature,
+              undefined,
+              undefined,
+              senderEmail
+            )
 
-          // Create thread
-          const threadResult = await sql`
-            INSERT INTO email_threads (user_id, subject, last_message_at)
-            VALUES (${campaign.user_id}, ${personalizedSubject}, NOW())
-            RETURNING id
-          `
-          const threadId = threadResult[0].id
+            // Create thread
+            const threadResult = await sql`
+              INSERT INTO email_threads (user_id, subject, last_message_at)
+              VALUES (${campaign.user_id}, ${personalizedSubject}, NOW())
+              RETURNING id
+            `
+            const threadId = threadResult[0].id
 
-          await sql`
-            UPDATE campaign_recipients
-            SET status = 'sent', sent_at = NOW(), message_id = ${result.messageId}
-            WHERE id = ${recipient.id}
-          `
+            await sql`
+              UPDATE campaign_recipients
+              SET status = 'sent', sent_at = NOW(), message_id = ${result.messageId}
+              WHERE id = ${recipient.id}
+            `
 
-          await saveEmailToDb(
-            campaign.user_id,
-            threadId,
-            'outgoing',
-            personalizedSubject,
-            personalizedBody,
-            null,
-            senderEmail,
-            recipient.email,
-            result.messageId,
-            null,
-            null,
-            true,
-            new Date(),
-            'synced'
-          )
+            await saveEmailToDb(
+              campaign.user_id,
+              threadId,
+              'outgoing',
+              personalizedSubject,
+              personalizedBody,
+              null,
+              senderEmail,
+              recipient.email,
+              result.messageId,
+              null,
+              null,
+              true,
+              new Date(),
+              'synced'
+            )
 
-          await sql`
-            UPDATE leads SET last_email_sent = NOW(), status = CASE WHEN status = 'cold' THEN 'contacted' ELSE status END
-            WHERE id = ${recipient.lead_id}
-          `
+            await sql`
+              UPDATE leads SET last_email_sent = NOW(), status = CASE WHEN status = 'cold' THEN 'contacted' ELSE status END
+              WHERE id = ${recipient.lead_id}
+            `
 
-          sentCount++
+            sentCount++
 
-          // Update today's sent count for daily cap tracking
-          if (camp.daily_cap && camp.daily_cap > 0) {
+            // Update campaign sent count for successful sends
             await sql`
               UPDATE email_campaigns
-              SET today_sent_count = today_sent_count + 1
+              SET sent_count = sent_count + 1
               WHERE id = ${campaign.id}
             `
-          }
-        } catch (error: any) {
-          console.error(`Failed to send to ${recipient.email}:`, error)
-          await sql`
-            UPDATE campaign_recipients
-            SET status = 'failed', error_message = ${error.message}
-            WHERE id = ${recipient.id}
-          `
-          failedCount++
-        }
 
-        // Update campaign progress
-        await sql`
-          UPDATE email_campaigns
-          SET sent_count = sent_count + ${sentCount}, failed_count = failed_count + ${failedCount}
-          WHERE id = ${campaign.id}
-        `
+            // Update today's sent count for daily cap tracking
+            if (camp.daily_cap && camp.daily_cap > 0) {
+              await sql`
+                UPDATE email_campaigns
+                SET today_sent_count = today_sent_count + 1
+                WHERE id = ${campaign.id}
+              `
+            }
+          } catch (error: any) {
+            console.error(`Failed to send to ${recipient.email}:`, error)
+            await sql`
+              UPDATE campaign_recipients
+              SET status = 'failed', error_message = ${error.message}
+              WHERE id = ${recipient.id}
+            `
+            failedCount++
+          }
+
+
+        }
 
         // Check if all recipients have been processed
         const remainingRecipients = await sql`
@@ -212,14 +214,33 @@ export async function POST() {
 }
 
 function personalizeText(text: string, recipient: any): string {
-  return text
+  let result = text
     .replace(/{{first_name}}/gi, recipient.first_name || 'there')
     .replace(/{{last_name}}/gi, recipient.last_name || '')
     .replace(/{{full_name}}/gi, [recipient.first_name, recipient.last_name].filter(Boolean).join(' ') || 'there')
     .replace(/{{email}}/gi, recipient.email)
     .replace(/{{company}}/gi, recipient.company_name || 'your company')
     .replace(/{{company_name}}/gi, recipient.company_name || 'your company')
+
+  // Replace any custom field tokens like {{positive_points}}, {{improvements}}, {{website}}, etc.
+  // These come from the lead's database columns
+  const customFields: Record<string, string | null> = {
+    website: recipient.website,
+    positive_points: recipient.positive_points,
+    improvements: recipient.improvements,
+    fb_ads_notes: recipient.fb_ads_notes,
+    pixel_status: recipient.pixel_status,
+    custom_notes: recipient.custom_notes,
+  }
+
+  for (const [field, value] of Object.entries(customFields)) {
+    const regex = new RegExp(`{{${field}}}`, 'gi')
+    result = result.replace(regex, value || '')
+  }
+
+  return result
 }
+
 
 // Append signature to email body
 function appendSignature(body: string, campaignSignature: string | null, mailboxSignature: string | null): string {
@@ -230,20 +251,22 @@ function appendSignature(body: string, campaignSignature: string | null, mailbox
 }
 
 // Calculate delay in milliseconds based on campaign settings
+// gap_minutes now stores seconds (converted from minutes on the frontend)
 function calculateDelay(campaign: any): number {
-  const baseGap = campaign.gap_minutes || 3
-  const maxGap = campaign.gap_min_max || 0
+  const baseGapSeconds = campaign.gap_minutes || 30 // default 30 seconds
+  const maxGapSeconds = campaign.gap_min_max || 0
 
-  if (maxGap > baseGap) {
+  if (maxGapSeconds > baseGapSeconds) {
     // Random range: pick a random number between baseGap and maxGap
-    const randomMinutes = baseGap + Math.random() * (maxGap - baseGap)
-    return Math.round(randomMinutes * 60 * 1000)
+    const randomSeconds = baseGapSeconds + Math.random() * (maxGapSeconds - baseGapSeconds)
+    return Math.round(randomSeconds * 1000)
   }
 
   // Fixed gap with small jitter (+/- 20%)
-  const jitter = (Math.random() - 0.5) * 0.4 * baseGap // +/- 20%
-  return Math.round((baseGap + jitter) * 60 * 1000)
+  const jitter = (Math.random() - 0.5) * 0.4 * baseGapSeconds // +/- 20%
+  return Math.round((baseGapSeconds + jitter) * 1000)
 }
+
 
 // Check if current time is within business hours
 function isWithinBusinessHours(campaign: any): boolean {

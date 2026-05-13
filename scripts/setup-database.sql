@@ -117,7 +117,7 @@ CREATE TABLE IF NOT EXISTS campaign_recipients (
   last_name VARCHAR(100),
   company_name VARCHAR(255),
   personalization_data JSONB DEFAULT '{}',
-  status VARCHAR(20) DEFAULT 'pending' CHECK (status IN ('pending', 'sent', 'failed', 'skipped')),
+  status VARCHAR(20) DEFAULT 'pending' CHECK (status IN ('pending', 'sending', 'sent', 'failed', 'skipped')),
   sent_at TIMESTAMP,
   error_message TEXT,
   message_id VARCHAR(255),

@@ -115,6 +115,37 @@ export function RichTextEditor({
     },
   })
 
+  // Hooks must be called unconditionally - before any early return
+  const handleSetLink = useCallback(() => {
+    if (!editor) return
+    if (linkUrl === '') {
+      editor.chain().focus().extendMarkRange('link').unsetLink().run()
+    } else {
+      editor.chain().focus().extendMarkRange('link').setLink({ href: linkUrl }).run()
+    }
+    setShowLinkInput(false)
+    setLinkUrl('')
+  }, [editor, linkUrl])
+
+  const handleOpenLink = useCallback(() => {
+    if (!editor) return
+    const previousUrl = editor.getAttributes('link').href
+    if (previousUrl) {
+      window.open(previousUrl, '_blank')
+    }
+  }, [editor])
+
+  const handleLinkButtonClick = useCallback(() => {
+    if (!editor) return
+    const previousUrl = editor.getAttributes('link').href
+    if (previousUrl) {
+      setLinkUrl(previousUrl)
+    } else {
+      setLinkUrl('')
+    }
+    setShowLinkInput(!showLinkInput)
+  }, [editor, showLinkInput])
+
   if (!editor) return null
 
   const insertToken = (token: string) => {
@@ -145,34 +176,8 @@ export function RichTextEditor({
     </Button>
   )
 
-  const handleSetLink = useCallback(() => {
-    if (linkUrl === '') {
-      editor.chain().focus().extendMarkRange('link').unsetLink().run()
-    } else {
-      editor.chain().focus().extendMarkRange('link').setLink({ href: linkUrl }).run()
-    }
-    setShowLinkInput(false)
-    setLinkUrl('')
-  }, [editor, linkUrl])
-
-  const handleOpenLink = useCallback(() => {
-    const previousUrl = editor.getAttributes('link').href
-    if (previousUrl) {
-      window.open(previousUrl, '_blank')
-    }
-  }, [editor])
-
-  const handleLinkButtonClick = useCallback(() => {
-    const previousUrl = editor.getAttributes('link').href
-    if (previousUrl) {
-      setLinkUrl(previousUrl)
-    } else {
-      setLinkUrl('')
-    }
-    setShowLinkInput(!showLinkInput)
-  }, [editor, showLinkInput])
-
   const allTokens = [...DEFAULT_TOKENS, ...customTokens]
+
 
   return (
     <div className="border rounded-md overflow-hidden">
