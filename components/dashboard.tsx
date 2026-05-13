@@ -178,12 +178,76 @@ export function Dashboard() {
     toast.success('Leads exported to CSV')
   }
 
-  // Excel Import (supports .csv, .xlsx, .xls)
+  // Extract column names from the first row of the imported file
+  const extractAndSaveColumns = async (leads: Partial<Lead>[]) => {
+    if (leads.length === 0) return
+    // Get all keys from the first lead that are custom fields (not standard)
+    const standardFields = new Set([
+      'first_name', 'last_name', 'email', 'company_name', 'website',
+      'status', 'current_layer', 'lead_type', 'priority', 'intent',
+      'positive_points', 'improvements', 'current_website_updates',
+      'fb_ads_notes', 'pixel_status', 'custom_notes', 'next_follow_up',
+      'group_id', 'import_batch_id', 'upsert',
+    ])
+    const customColumns = new Set<string>()
+    for (const lead of leads) {
+      for (const key of Object.keys(lead)) {
+        if (!standardFields.has(key)) {
+          customColumns.add(key)
+        }
+      }
+    }
+    if (customColumns.size > 0) {
+      try {
+        await fetch('/api/import-columns', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ columns: Array.from(customColumns) }),
+        })
+      } catch {
+        // Silently fail - columns are just for personalization hints
+      }
+    }
+  }
+
+  // Excel Import (supports .csv, .xlsx, .xls) - uses upsert to overwrite existing leads
   const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
 
     const isXLSX = file.name.endsWith('.xlsx') || file.name.endsWith('.xls')
+
+    const processLeads = async (parsedLeads: Partial<Lead>[]) => {
+      if (parsedLeads.length === 0) {
+        toast.error('No valid leads found. Make sure the file has "First Name" and "Email" columns.')
+        return
+      }
+
+      // Save custom columns for personalization
+      await extractAndSaveColumns(parsedLeads)
+
+      let successCount = 0
+      let errorCount = 0
+
+      for (const leadData of parsedLeads) {
+        try {
+          // Use upsert=true so re-importing overwrites existing leads by email
+          const res = await fetch('/api/leads', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ...leadData, upsert: true }),
+          })
+          if (res.ok) successCount++
+          else errorCount++
+        } catch {
+          errorCount++
+        }
+      }
+
+      await mutate('/api/leads')
+      const updatedCount = parsedLeads.filter(l => l.email).length
+      toast.success(`Imported/Updated ${successCount} leads${errorCount > 0 ? ` (${errorCount} failed)` : ''}`)
+    }
 
     if (isXLSX) {
       const reader = new FileReader()
@@ -191,31 +255,7 @@ export function Dashboard() {
         try {
           const data = event.target?.result as ArrayBuffer
           const parsedLeads = parseXLSX(data)
-          
-          if (parsedLeads.length === 0) {
-            toast.error('No valid leads found in the Excel file. Make sure it has "First Name" and "Email" columns.')
-            return
-          }
-
-          let successCount = 0
-          let errorCount = 0
-
-          for (const leadData of parsedLeads) {
-            try {
-              const res = await fetch('/api/leads', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(leadData),
-              })
-              if (res.ok) successCount++
-              else errorCount++
-            } catch {
-              errorCount++
-            }
-          }
-
-          await mutate('/api/leads')
-          toast.success(`Imported ${successCount} leads from Excel${errorCount > 0 ? ` (${errorCount} failed)` : ''}`)
+          await processLeads(parsedLeads)
         } catch {
           toast.error('Failed to parse Excel file. Make sure it\'s a valid .xlsx file.')
         }
@@ -226,37 +266,14 @@ export function Dashboard() {
       reader.onload = async (event) => {
         const content = event.target?.result as string
         const parsedLeads = parseCSV(content)
-        
-        if (parsedLeads.length === 0) {
-          toast.error('No valid leads found in CSV. Make sure it has "First Name" and "Email" columns.')
-          return
-        }
-
-        let successCount = 0
-        let errorCount = 0
-
-        for (const leadData of parsedLeads) {
-          try {
-            const res = await fetch('/api/leads', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(leadData),
-            })
-            if (res.ok) successCount++
-            else errorCount++
-          } catch {
-            errorCount++
-          }
-        }
-
-        await mutate('/api/leads')
-        toast.success(`Imported ${successCount} leads from CSV${errorCount > 0 ? ` (${errorCount} failed)` : ''}`)
+        await processLeads(parsedLeads)
       }
       reader.readAsText(file)
     }
     
     if (fileInputRef.current) fileInputRef.current.value = ''
   }
+
 
   if (error) {
     return (

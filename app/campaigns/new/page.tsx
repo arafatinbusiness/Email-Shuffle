@@ -53,6 +53,7 @@ export default function NewCampaignPage() {
   const [selectedLeadIds, setSelectedLeadIds] = useState<number[]>([])
   const [selectAll, setSelectAll] = useState(false)
   const [campaignSignature, setCampaignSignature] = useState('')
+  const [mailboxSignature, setMailboxSignature] = useState('')
   const [fromEmail, setFromEmail] = useState('')
   const [isCreating, setIsCreating] = useState(false)
 
@@ -102,6 +103,7 @@ export default function NewCampaignPage() {
         if (mailbox) {
           setMailboxEmail(mailbox.email || '')
           setMailboxSendAs(mailbox.send_as || '')
+          setMailboxSignature(mailbox.signature || '')
         }
       }
     } catch (error) {
@@ -252,7 +254,7 @@ export default function NewCampaignPage() {
             <CardHeader className="pb-2">
               <CardTitle className="text-sm">Email Body</CardTitle>
               <CardDescription className="text-xs">
-                Use {'{{first_name}}'}, {'{{company}}'}, etc. for personalization
+                Use personalization tokens like {'{{first_name}}'}, {'{{company}}'}, {'{{positive_points}}'}, {'{{improvements}}'}, {'{{current_website_updates}}'} etc. Click "Personalize" in the editor toolbar to see all available fields.
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -266,20 +268,23 @@ export default function NewCampaignPage() {
             </CardContent>
           </Card>
 
+
           {/* Signature */}
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm">Email Signature (optional)</CardTitle>
+              <CardTitle className="text-sm">Email Signature</CardTitle>
               <CardDescription className="text-xs">
-                This signature will be appended to every email in this campaign.
-                If you also have a mailbox signature set, the campaign signature will be used instead.
+                If you set a campaign signature, it will be used instead of the mailbox signature.
+                Leave empty to automatically use your mailbox signature.
               </CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-3">
               <textarea
                 value={campaignSignature}
                 onChange={(e) => setCampaignSignature(e.target.value)}
-                placeholder={`Enter your email signature...
+                placeholder={`Enter a campaign-specific signature (optional)...
+
+Leave empty to use your mailbox signature automatically.
 
 Example:
 --
@@ -289,6 +294,23 @@ Phone: +1 234 567 890
 www.yourcompany.com`}
                 className="w-full min-h-[100px] px-3 py-2 text-sm border rounded-md bg-background resize-y focus:outline-none focus:ring-2 focus:ring-ring"
               />
+              {mailboxSignature && !campaignSignature && (
+                <div className="p-3 border border-primary/20 rounded-md bg-primary/5">
+                  <p className="text-xs font-medium text-primary mb-1">Mailbox signature will be auto-appended:</p>
+                  <p className="text-xs text-muted-foreground whitespace-pre-wrap">{mailboxSignature}</p>
+                </div>
+              )}
+              {mailboxSignature && campaignSignature && (
+                <p className="text-xs text-muted-foreground">
+                  Campaign signature will be used. Your mailbox signature is saved in mailbox settings.
+                </p>
+              )}
+              {!mailboxSignature && !campaignSignature && (
+                <p className="text-xs text-muted-foreground">
+                  No signature will be appended. Set a signature in{' '}
+                  <a href="/mailbox" className="text-primary underline">Mailbox Settings</a> to have it auto-appended.
+                </p>
+              )}
             </CardContent>
           </Card>
 

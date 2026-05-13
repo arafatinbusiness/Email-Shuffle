@@ -3,7 +3,9 @@
 import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import Placeholder from '@tiptap/extension-placeholder'
+import LinkExtension from '@tiptap/extension-link'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import {
   Bold,
   Italic,
@@ -15,14 +17,17 @@ import {
   Heading1,
   Heading2,
   Heading3,
+  Link,
+  Link2Off,
   Variable,
   User,
   Building2,
   Mail,
   ChevronDown,
   ChevronRight,
+  ExternalLink,
 } from 'lucide-react'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 
 interface RichTextEditorProps {
   content: string
@@ -39,7 +44,15 @@ const DEFAULT_TOKENS = [
   { label: 'Full Name', token: '{{full_name}}', icon: 'User' },
   { label: 'Email', token: '{{email}}', icon: 'Mail' },
   { label: 'Company', token: '{{company}}', icon: 'Building2' },
+  { label: 'Website', token: '{{website}}', icon: 'Globe' },
+  { label: 'Positive Points', token: '{{positive_points}}', icon: 'ThumbsUp' },
+  { label: 'Improvements', token: '{{improvements}}', icon: 'TrendingUp' },
+  { label: 'Current Website Updates', token: '{{current_website_updates}}', icon: 'RefreshCw' },
+  { label: 'FB Ads Notes', token: '{{fb_ads_notes}}', icon: 'Megaphone' },
+  { label: 'Pixel Status', token: '{{pixel_status}}', icon: 'Activity' },
+  { label: 'Custom Notes', token: '{{custom_notes}}', icon: 'FileText' },
 ]
+
 
 export function RichTextEditor({
   content,
@@ -69,6 +82,9 @@ export function RichTextEditor({
     }
   }, [showPersonalization])
 
+  const [linkUrl, setLinkUrl] = useState('')
+  const [showLinkInput, setShowLinkInput] = useState(false)
+
   const editor = useEditor({
     immediatelyRender: false,
     extensions: [
@@ -79,6 +95,12 @@ export function RichTextEditor({
       }),
       Placeholder.configure({
         placeholder,
+      }),
+      LinkExtension.configure({
+        openOnClick: false,
+        HTMLAttributes: {
+          class: 'text-primary underline underline-offset-2 cursor-pointer hover:text-primary/80',
+        },
       }),
     ],
     content,
@@ -122,6 +144,33 @@ export function RichTextEditor({
       {children}
     </Button>
   )
+
+  const handleSetLink = useCallback(() => {
+    if (linkUrl === '') {
+      editor.chain().focus().extendMarkRange('link').unsetLink().run()
+    } else {
+      editor.chain().focus().extendMarkRange('link').setLink({ href: linkUrl }).run()
+    }
+    setShowLinkInput(false)
+    setLinkUrl('')
+  }, [editor, linkUrl])
+
+  const handleOpenLink = useCallback(() => {
+    const previousUrl = editor.getAttributes('link').href
+    if (previousUrl) {
+      window.open(previousUrl, '_blank')
+    }
+  }, [editor])
+
+  const handleLinkButtonClick = useCallback(() => {
+    const previousUrl = editor.getAttributes('link').href
+    if (previousUrl) {
+      setLinkUrl(previousUrl)
+    } else {
+      setLinkUrl('')
+    }
+    setShowLinkInput(!showLinkInput)
+  }, [editor, showLinkInput])
 
   const allTokens = [...DEFAULT_TOKENS, ...customTokens]
 
@@ -186,7 +235,69 @@ export function RichTextEditor({
         >
           <Quote className="h-4 w-4" />
         </ToolbarButton>
-        <div className="flex-1" />
+        <div className="w-px h-6 bg-border mx-1" />
+
+        {/* Link button with inline URL input */}
+        <div className="relative flex items-center">
+          <ToolbarButton
+            onClick={handleLinkButtonClick}
+            isActive={editor.isActive('link')}
+            title={editor.isActive('link') ? 'Edit link' : 'Insert link'}
+          >
+            <Link className="h-4 w-4" />
+          </ToolbarButton>
+          {editor.isActive('link') && (
+            <ToolbarButton
+              onClick={() => editor.chain().focus().unsetLink().run()}
+              isActive={false}
+              title="Remove link"
+            >
+              <Link2Off className="h-4 w-4" />
+            </ToolbarButton>
+          )}
+          {showLinkInput && (
+            <div className="absolute left-0 top-full mt-1 z-50 flex items-center gap-1 p-1.5 bg-popover border rounded-md shadow-lg min-w-[300px]">
+              <Input
+                type="url"
+                value={linkUrl}
+                onChange={(e) => setLinkUrl(e.target.value)}
+                placeholder="https://example.com"
+                className="h-8 text-xs flex-1"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleSetLink()
+                  if (e.key === 'Escape') {
+                    setShowLinkInput(false)
+                    setLinkUrl('')
+                  }
+                }}
+                autoFocus
+              />
+              <Button
+                type="button"
+                variant="default"
+                size="sm"
+                className="h-8 text-xs px-2"
+                onClick={handleSetLink}
+              >
+                {linkUrl ? 'Apply' : 'Remove'}
+              </Button>
+              {editor.getAttributes('link').href && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 w-8 p-0"
+                  onClick={handleOpenLink}
+                  title="Open link in new tab"
+                >
+                  <ExternalLink className="h-3.5 w-3.5" />
+                </Button>
+              )}
+            </div>
+          )}
+        </div>
+
+        <div className="w-px h-6 bg-border mx-1" />
 
         {/* Personalization dropdown - HubSpot style */}
         {showPersonalization && (

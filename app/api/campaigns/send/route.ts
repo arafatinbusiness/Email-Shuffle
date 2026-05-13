@@ -42,14 +42,17 @@ export async function POST(request: Request) {
       UPDATE email_campaigns SET status = 'sending' WHERE id = ${campaign_id}
     `
 
-    // Get pending recipients
+    // Get pending recipients with all lead fields for personalization
     const recipients = await sql`
-      SELECT cr.*, l.first_name, l.last_name, l.company_name
+      SELECT cr.*, l.first_name, l.last_name, l.company_name, l.website,
+             l.positive_points, l.improvements, l.fb_ads_notes, l.pixel_status,
+             l.custom_notes, l.current_website_updates
       FROM campaign_recipients cr
       JOIN leads l ON l.id = cr.lead_id
       WHERE cr.campaign_id = ${campaign_id} AND cr.status = 'pending'
       ORDER BY cr.id
     `
+
 
     if (recipients.length === 0) {
       await sql`
@@ -176,13 +179,32 @@ export async function POST(request: Request) {
 
 // Personalize text with recipient data
 function personalizeText(text: string, recipient: any): string {
-  return text
+  let result = text
     .replace(/{{first_name}}/gi, recipient.first_name || 'there')
     .replace(/{{last_name}}/gi, recipient.last_name || '')
     .replace(/{{full_name}}/gi, [recipient.first_name, recipient.last_name].filter(Boolean).join(' ') || 'there')
     .replace(/{{email}}/gi, recipient.email)
     .replace(/{{company}}/gi, recipient.company_name || 'your company')
     .replace(/{{company_name}}/gi, recipient.company_name || 'your company')
+
+  // Replace any custom field tokens like {{positive_points}}, {{improvements}}, {{website}}, etc.
+  // These come from the lead's database columns
+  const customFields: Record<string, string | null> = {
+    website: recipient.website,
+    positive_points: recipient.positive_points,
+    improvements: recipient.improvements,
+    fb_ads_notes: recipient.fb_ads_notes,
+    pixel_status: recipient.pixel_status,
+    custom_notes: recipient.custom_notes,
+    current_website_updates: recipient.current_website_updates,
+  }
+
+  for (const [field, value] of Object.entries(customFields)) {
+    const regex = new RegExp(`{{${field}}}`, 'gi')
+    result = result.replace(regex, value || '')
+  }
+
+  return result
 }
 
 // Append signature to email body
@@ -299,14 +321,17 @@ async function processScheduledCampaign(campaignId: number, userId: number) {
 
     const senderEmail = campaign.from_email || config.send_as || config.email
 
-    // Get pending recipients ordered by ID
+    // Get pending recipients with all lead fields for personalization
     const recipients = await sql`
-      SELECT cr.*, l.first_name, l.last_name, l.company_name
+      SELECT cr.*, l.first_name, l.last_name, l.company_name, l.website,
+             l.positive_points, l.improvements, l.fb_ads_notes, l.pixel_status,
+             l.custom_notes, l.current_website_updates
       FROM campaign_recipients cr
       JOIN leads l ON l.id = cr.lead_id
       WHERE cr.campaign_id = ${campaignId} AND cr.status = 'pending'
       ORDER BY cr.id
     `
+
 
     let sentCount = 0
     let failedCount = 0

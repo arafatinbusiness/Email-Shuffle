@@ -21,11 +21,13 @@ export interface Lead {
   fb_ads_notes: string | null
   pixel_status: string | null
   custom_notes: string | null
+  current_website_updates: string | null
   last_email_sent: string | null
   next_follow_up: string | null
   created_at: string
   updated_at: string
 }
+
 
 export interface EmailHistory {
   id: number

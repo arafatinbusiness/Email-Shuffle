@@ -96,21 +96,59 @@ export async function POST(request: Request) {
       intent,
       positive_points,
       improvements,
+      current_website_updates,
       fb_ads_notes,
       pixel_status,
       custom_notes,
-      next_follow_up
+      next_follow_up,
+      upsert = false, // If true, update existing lead by email instead of failing
     } = body
 
+    if (upsert) {
+      // UPSERT: Insert or update on conflict (user_id, email)
+      const result = await sql`
+        INSERT INTO leads (
+          user_id, first_name, last_name, email, company_name, website,
+          status, current_layer, lead_type, priority, intent, positive_points, improvements,
+          current_website_updates, fb_ads_notes, pixel_status, custom_notes, next_follow_up
+        ) VALUES (
+          ${userId}, ${first_name}, ${last_name || null}, ${email}, ${company_name || null}, ${website || null},
+          ${status}, ${current_layer}, ${lead_type}, ${priority || null}, ${intent || null}, ${positive_points || null}, ${improvements || null},
+          ${current_website_updates || null}, ${fb_ads_notes || null}, ${pixel_status || null}, ${custom_notes || null}, ${next_follow_up || null}
+        )
+        ON CONFLICT (user_id, email) DO UPDATE SET
+          first_name = EXCLUDED.first_name,
+          last_name = EXCLUDED.last_name,
+          company_name = EXCLUDED.company_name,
+          website = EXCLUDED.website,
+          status = EXCLUDED.status,
+          current_layer = EXCLUDED.current_layer,
+          lead_type = EXCLUDED.lead_type,
+          priority = EXCLUDED.priority,
+          intent = EXCLUDED.intent,
+          positive_points = EXCLUDED.positive_points,
+          improvements = EXCLUDED.improvements,
+          current_website_updates = EXCLUDED.current_website_updates,
+          fb_ads_notes = EXCLUDED.fb_ads_notes,
+          pixel_status = EXCLUDED.pixel_status,
+          custom_notes = EXCLUDED.custom_notes,
+          next_follow_up = EXCLUDED.next_follow_up,
+          updated_at = NOW()
+        RETURNING *
+      `
+      return NextResponse.json(result[0], { status: 201 })
+    }
+
+    // Regular insert (will fail on duplicate email)
     const result = await sql`
       INSERT INTO leads (
         user_id, first_name, last_name, email, company_name, website,
         status, current_layer, lead_type, priority, intent, positive_points, improvements,
-        fb_ads_notes, pixel_status, custom_notes, next_follow_up
+        current_website_updates, fb_ads_notes, pixel_status, custom_notes, next_follow_up
       ) VALUES (
         ${userId}, ${first_name}, ${last_name || null}, ${email}, ${company_name || null}, ${website || null},
         ${status}, ${current_layer}, ${lead_type}, ${priority || null}, ${intent || null}, ${positive_points || null}, ${improvements || null},
-        ${fb_ads_notes || null}, ${pixel_status || null}, ${custom_notes || null}, ${next_follow_up || null}
+        ${current_website_updates || null}, ${fb_ads_notes || null}, ${pixel_status || null}, ${custom_notes || null}, ${next_follow_up || null}
       )
       RETURNING *
     `
@@ -120,3 +158,4 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Failed to create lead' }, { status: 500 })
   }
 }
+

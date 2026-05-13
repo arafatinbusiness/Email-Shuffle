@@ -16,6 +16,7 @@ export function exportToCSV(leads: Lead[]): string {
     'Intent',
     'Positive Points',
     'Improvements',
+    'Current Website Updates',
     'FB Ads Notes',
     'Pixel Status',
     'Custom Notes',
@@ -37,6 +38,7 @@ export function exportToCSV(leads: Lead[]): string {
     lead.intent || '',
     lead.positive_points || '',
     lead.improvements || '',
+    lead.current_website_updates || '',
     lead.fb_ads_notes || '',
     lead.pixel_status || '',
     lead.custom_notes || '',
@@ -44,6 +46,7 @@ export function exportToCSV(leads: Lead[]): string {
     lead.next_follow_up || '',
     lead.created_at,
   ])
+
 
   const escapeCSV = (value: string) => {
     if (value.includes(',') || value.includes('"') || value.includes('\n')) {
@@ -121,6 +124,11 @@ export function parseCSV(content: string): Partial<Lead>[] {
         case 'improvements':
           lead.improvements = value || null
           break
+        case 'current_website_updates':
+        case 'current_website_update':
+        case 'website_updates':
+          lead.current_website_updates = value || null
+          break
         case 'fb_ads_notes':
         case 'fb_notes':
           lead.fb_ads_notes = value || null
@@ -138,6 +146,7 @@ export function parseCSV(content: string): Partial<Lead>[] {
         case 'follow_up':
           lead.next_follow_up = value || null
           break
+
       }
     })
 
@@ -213,6 +222,11 @@ export function parseXLSX(data: ArrayBuffer): Partial<Lead>[] {
         case 'improvements':
           lead.improvements = strValue || null
           break
+        case 'current_website_updates':
+        case 'current_website_update':
+        case 'website_updates':
+          lead.current_website_updates = strValue || null
+          break
         case 'fb_ads_notes':
         case 'fb_notes':
           lead.fb_ads_notes = strValue || null
@@ -230,6 +244,7 @@ export function parseXLSX(data: ArrayBuffer): Partial<Lead>[] {
         case 'follow_up':
           lead.next_follow_up = strValue || null
           break
+
       }
     }
 
