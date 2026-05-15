@@ -495,6 +495,11 @@ export function Dashboard() {
             <CustomerUpdates
               customers={customers}
               onSelectCustomer={handleSelectLead}
+              onEditCustomer={(customer) => {
+                setSelectedLead(customer)
+                setIsEditing(true)
+                setIsFormOpen(true)
+              }}
               onUpdateCustomer={handleUpdateLead}
               onDeleteCustomer={handleDeleteLead}
             />

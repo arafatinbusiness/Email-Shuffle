@@ -17,6 +17,12 @@ import {
   Search,
   FolderOpen,
   ArrowLeft,
+  Variable,
+  User,
+  Building2,
+  Mail,
+  ChevronDown,
+  ChevronRight,
 } from 'lucide-react'
 
 interface Lead {
@@ -62,6 +68,9 @@ function NewCampaignForm() {
   // Templates
   const [templates, setTemplates] = useState<{ id: number; name: string; subject: string; body: string; category: string }[]>([])
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>('')
+
+  // Subject personalization
+  const [showSubjectTokens, setShowSubjectTokens] = useState(false)
 
   // Filters
   const [selectedGroupId, setSelectedGroupId] = useState<string>('all')
@@ -303,11 +312,65 @@ function NewCampaignForm() {
             </div>
             <div className="space-y-1.5">
               <Label>Subject</Label>
-              <Input
-                value={subject}
-                onChange={(e) => setSubject(e.target.value)}
-                placeholder="Enter email subject..."
-              />
+              <div className="relative">
+                <Input
+                  value={subject}
+                  onChange={(e) => setSubject(e.target.value)}
+                  placeholder="Enter email subject..."
+                  className="pr-24"
+                />
+                <div className="absolute right-1 top-1/2 -translate-y-1/2">
+                  <div className="relative">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setShowSubjectTokens(!showSubjectTokens)}
+                      className="h-7 text-xs text-primary hover:text-primary px-2"
+                      title="Insert personalization token"
+                    >
+                      <Variable className="h-3.5 w-3.5 mr-1" />
+                      {showSubjectTokens ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+                    </Button>
+                    {showSubjectTokens && (
+                      <div className="absolute right-0 top-full mt-1 z-50 w-56 bg-popover border rounded-md shadow-lg max-h-72 overflow-y-auto">
+                        <div className="p-2 border-b">
+                          <p className="text-xs font-medium text-muted-foreground">Insert personalization token</p>
+                        </div>
+                        <div className="p-1">
+                          {[
+                            { label: 'First Name', token: '{{first_name}}' },
+                            { label: 'Last Name', token: '{{last_name}}' },
+                            { label: 'Full Name', token: '{{full_name}}' },
+                            { label: 'Company', token: '{{company}}' },
+                            { label: 'Website', token: '{{website}}' },
+                          ].map((t, i) => (
+                            <button
+                              key={i}
+                              type="button"
+                              className="w-full text-left px-2 py-1.5 text-sm hover:bg-accent rounded flex items-center gap-2 group"
+                              onClick={() => {
+                                setSubject(prev => prev + t.token)
+                                setShowSubjectTokens(false)
+                              }}
+                            >
+                              <span className="flex-1">{t.label}</span>
+                              <code className="text-[10px] text-muted-foreground bg-muted px-1 rounded group-hover:bg-background">
+                                {t.token}
+                              </code>
+                            </button>
+                          ))}
+                        </div>
+                        <div className="p-2 border-t bg-muted/30">
+                          <p className="text-[10px] text-muted-foreground">
+                            Tokens are replaced with actual data when sending.
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
             </div>
             <div className="space-y-1.5">
               <Label>Send From</Label>

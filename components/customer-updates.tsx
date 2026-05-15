@@ -23,11 +23,12 @@ interface EmailRecord {
 interface CustomerUpdatesProps {
   customers: Lead[]
   onSelectCustomer: (customer: Lead) => void
+  onEditCustomer: (customer: Lead) => void
   onUpdateCustomer: (updates: Partial<Lead>) => Promise<void>
   onDeleteCustomer: (id: number) => void
 }
 
-export function CustomerUpdates({ customers, onSelectCustomer, onUpdateCustomer, onDeleteCustomer }: CustomerUpdatesProps) {
+export function CustomerUpdates({ customers, onSelectCustomer, onEditCustomer, onUpdateCustomer, onDeleteCustomer }: CustomerUpdatesProps) {
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedCustomer, setSelectedCustomer] = useState<Lead | null>(null)
   const [updateSubject, setUpdateSubject] = useState('')
@@ -239,7 +240,7 @@ Best regards,
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => onSelectCustomer(selectedCustomer)}
+                        onClick={() => onEditCustomer(selectedCustomer)}
                       >
                         <Edit className="h-3 w-3 mr-1" />
                         Edit
