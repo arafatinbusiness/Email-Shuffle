@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Search, Send, Copy, Check, Clock, RefreshCw, User, Building2, Mail, History, ChevronDown, ChevronUp } from 'lucide-react'
+import { Search, Send, Copy, Check, Clock, RefreshCw, User, Building2, Mail, History, ChevronDown, ChevronUp, Edit } from 'lucide-react'
 import { format } from 'date-fns'
 import { toast } from 'sonner'
 
@@ -230,16 +230,29 @@ Best regards,
                             {selectedCustomer.company_name}
                           </span>
                         )}
+                        <span className="ml-2 text-muted-foreground">
+                          {selectedCustomer.email}
+                        </span>
                       </CardDescription>
                     </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={generateDailyUpdate}
-                    >
-                      <RefreshCw className="h-3 w-3 mr-1" />
-                      Generate Template
-                    </Button>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => onSelectCustomer(selectedCustomer)}
+                      >
+                        <Edit className="h-3 w-3 mr-1" />
+                        Edit
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={generateDailyUpdate}
+                      >
+                        <RefreshCw className="h-3 w-3 mr-1" />
+                        Generate Template
+                      </Button>
+                    </div>
                   </div>
                 </CardHeader>
               </Card>

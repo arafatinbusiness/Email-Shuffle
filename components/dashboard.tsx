@@ -78,7 +78,10 @@ export function Dashboard() {
   const leadsOnly = leads.filter(l => l.lead_type !== 'customer')
   const customers = leads.filter(l => l.lead_type === 'customer')
 
-  const filteredLeads = leadsOnly.filter(lead => {
+  // "All Leads" tab shows both leads and customers
+  const allLeads = leads // All leads including customers
+
+  const filteredLeads = allLeads.filter(lead => {
     const matchesSearch = 
       lead.first_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       lead.last_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
