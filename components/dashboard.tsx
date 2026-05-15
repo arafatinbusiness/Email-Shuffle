@@ -15,6 +15,7 @@ import { CustomerUpdates } from './customer-updates'
 import { MailboxInbox } from './mailbox-inbox'
 import { MailboxSettings } from './mailbox-settings'
 import { CampaignManager } from './campaign-manager'
+import { TemplateManager } from './template-manager'
 import { EmailComposer } from './email-composer'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -49,7 +50,8 @@ import {
   User,
   Handshake,
   Mail,
-  Send
+  Send,
+  FileText
 } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -388,6 +390,10 @@ export function Dashboard() {
               <Handshake className="h-4 w-4" />
               Customers ({customers.length})
             </TabsTrigger>
+            <TabsTrigger value="templates" className="gap-2">
+              <FileText className="h-4 w-4" />
+              Templates
+            </TabsTrigger>
             <TabsTrigger value="campaigns" className="gap-2">
               <Send className="h-4 w-4" />
               Campaigns
@@ -489,6 +495,11 @@ export function Dashboard() {
               onUpdateCustomer={handleUpdateLead}
               onDeleteCustomer={handleDeleteLead}
             />
+          </TabsContent>
+
+          {/* TEMPLATES TAB */}
+          <TabsContent value="templates" className="space-y-6">
+            <TemplateManager />
           </TabsContent>
 
           {/* CAMPAIGNS TAB */}

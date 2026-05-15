@@ -25,6 +25,7 @@ import {
   Pause,
   Ban,
   Eye,
+  Copy,
 } from 'lucide-react'
 
 interface Campaign {
@@ -112,6 +113,24 @@ export function CampaignManager() {
 
       if (!res.ok) throw new Error('Failed to update campaign')
       toast.success(`Campaign ${status}`)
+      loadData()
+    } catch (error: any) {
+      toast.error(error.message)
+    }
+  }
+
+  const cloneCampaign = async (campaignId: number) => {
+    try {
+      const res = await fetch('/api/campaigns/clone', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ campaign_id: campaignId }),
+      })
+      if (!res.ok) {
+        const error = await res.json()
+        throw new Error(error.error || 'Failed to clone campaign')
+      }
+      toast.success('Campaign cloned!')
       loadData()
     } catch (error: any) {
       toast.error(error.message)
@@ -284,6 +303,14 @@ export function CampaignManager() {
                         Cancel
                       </Button>
                     )}
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => cloneCampaign(campaign.id)}
+                    >
+                      <Copy className="h-3 w-3 mr-1" />
+                      Clone
+                    </Button>
                     <Button
                       size="sm"
                       variant="ghost"

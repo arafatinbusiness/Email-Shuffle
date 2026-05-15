@@ -72,6 +72,11 @@ export async function POST() {
       ALTER TABLE email_campaigns ADD COLUMN IF NOT EXISTS from_name TEXT DEFAULT ''
     `
 
+    // Add current_website_updates column to leads if missing
+    await sql`
+      ALTER TABLE leads ADD COLUMN IF NOT EXISTS current_website_updates TEXT
+    `
+
     return NextResponse.json({ success: true, message: 'Migration completed successfully' })
 
 
