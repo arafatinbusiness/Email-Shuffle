@@ -115,6 +115,17 @@ export function RichTextEditor({
     },
   })
 
+  // Update editor content when content prop changes externally (e.g., template selection)
+  useEffect(() => {
+    if (editor && content) {
+      // Only update if the content is different to avoid cursor jumping
+      const currentHtml = editor.getHTML()
+      if (currentHtml !== content) {
+        editor.commands.setContent(content, { emitUpdate: false })
+      }
+    }
+  }, [editor, content])
+
   // Hooks must be called unconditionally - before any early return
   const handleSetLink = useCallback(() => {
     if (!editor) return

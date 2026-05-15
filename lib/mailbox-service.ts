@@ -30,7 +30,8 @@ export async function sendEmail(
   body: string,
   inReplyTo?: string,
   references?: string,
-  fromOverride?: string
+  fromOverride?: string,
+  fromNameOverride?: string
 ): Promise<{ messageId: string; accepted: string[] }> {
   const transporter = nodemailer.createTransport({
     host: config.smtp_host,
@@ -52,9 +53,8 @@ export async function sendEmail(
   // Use fromOverride if provided, otherwise send_as alias, otherwise account email
   const fromAddress = fromOverride || config.send_as || config.email
 
-  // Use the alias/override as the From address so recipients see the correct sender
-  // The SMTP auth still uses the main account credentials
-  const fromName = fromAddress.split('@')[0]
+  // Use the display name override if provided, otherwise extract from email address
+  const fromName = fromNameOverride || fromAddress.split('@')[0]
 
   // Strip HTML tags for plain text version
   const plainText = body

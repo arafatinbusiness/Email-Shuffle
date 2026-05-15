@@ -56,7 +56,12 @@ export default function NewCampaignPage() {
   const [campaignSignature, setCampaignSignature] = useState('')
   const [mailboxSignature, setMailboxSignature] = useState('')
   const [fromEmail, setFromEmail] = useState('')
+  const [fromName, setFromName] = useState('')
   const [isCreating, setIsCreating] = useState(false)
+
+  // Templates
+  const [templates, setTemplates] = useState<{ id: number; name: string; subject: string; body: string; category: string }[]>([])
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string>('')
 
   // Filters
   const [selectedGroupId, setSelectedGroupId] = useState<string>('all')
@@ -91,10 +96,11 @@ export default function NewCampaignPage() {
   const loadData = async () => {
     setIsLoading(true)
     try {
-      const [leadsRes, groupsRes, mailboxRes] = await Promise.all([
+      const [leadsRes, groupsRes, mailboxRes, templatesRes] = await Promise.all([
         fetch('/api/leads?limit=500'),
         fetch('/api/lead-groups'),
         fetch('/api/mailbox/account'),
+        fetch('/api/templates'),
       ])
 
       if (leadsRes.ok) setLeads(await leadsRes.json())
@@ -107,6 +113,7 @@ export default function NewCampaignPage() {
           setMailboxSignature(mailbox.signature || '')
         }
       }
+      if (templatesRes.ok) setTemplates(await templatesRes.json())
     } catch (error) {
       console.error('Failed to load data:', error)
     } finally {
@@ -127,6 +134,17 @@ export default function NewCampaignPage() {
       setSelectedLeadIds(leads.map(l => l.id))
     }
     setSelectAll(!selectAll)
+  }
+
+  const handleTemplateSelect = (templateId: string) => {
+    setSelectedTemplateId(templateId)
+    if (!templateId) return
+    const template = templates.find(t => t.id.toString() === templateId)
+    if (template) {
+      setSubject(template.subject)
+      setBody(template.body)
+      toast.success(`Template "${template.name}" loaded!`)
+    }
   }
 
   const createCampaign = async () => {
@@ -150,6 +168,7 @@ export default function NewCampaignPage() {
         lead_ids: selectedLeadIds,
         signature: campaignSignature,
         from_email: fromEmail || undefined,
+        from_name: fromName || undefined,
       }
 
 
@@ -222,8 +241,8 @@ export default function NewCampaignPage() {
       {/* Form */}
       <div className="max-w-7xl mx-auto px-4 py-6">
         <div className="space-y-6">
-          {/* Top row: Campaign Name + Subject + Send From */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {/* Top row: Campaign Name + Subject + Send From + Display Name */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="space-y-1.5">
               <Label>Campaign Name</Label>
               <Input
@@ -254,7 +273,41 @@ export default function NewCampaignPage() {
                 )}
               </select>
             </div>
+            <div className="space-y-1.5">
+              <Label>Display Name</Label>
+              <Input
+                value={fromName}
+                onChange={(e) => setFromName(e.target.value)}
+                placeholder="e.g., Labintial (leave empty for default)"
+              />
+            </div>
           </div>
+
+          {/* Template Selector */}
+          {templates.length > 0 && (
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm">Use a Template</CardTitle>
+                <CardDescription className="text-xs">
+                  Select a saved template to auto-fill the subject and body. Personalization tokens like {'{{first_name}}'}, {'{{positive_points}}'} etc. will be replaced with each lead's latest data when sending.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <select
+                  className="flex h-10 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  value={selectedTemplateId}
+                  onChange={(e) => handleTemplateSelect(e.target.value)}
+                >
+                  <option value="">-- Select a template --</option>
+                  {templates.map((t) => (
+                    <option key={t.id} value={t.id.toString()}>
+                      {t.name} {t.category !== 'general' ? `(${t.category})` : ''}
+                    </option>
+                  ))}
+                </select>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Email Body - full width */}
           <Card>

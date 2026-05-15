@@ -114,7 +114,8 @@ export async function POST() {
               bodyWithSignature,
               undefined,
               undefined,
-              senderEmail
+              senderEmail,
+              campaign.from_name || undefined
             )
 
             // Create thread

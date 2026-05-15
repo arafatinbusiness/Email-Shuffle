@@ -50,6 +50,7 @@ export async function POST(request: Request) {
       lead_ids = [],
       signature = '',
       from_email = '',
+      from_name = '',
     } = body
 
     if (!name || !subject || !campaignBody) {
@@ -65,8 +66,8 @@ export async function POST(request: Request) {
 
     // Start a transaction
     const campaign = await sql`
-      INSERT INTO email_campaigns (user_id, name, subject, body, send_type, status, scheduled_at, gap_minutes, gap_min_max, business_hours_only, daily_cap, business_hours_start, business_hours_end, total_recipients, signature, from_email)
-      VALUES (${userId}, ${name}, ${subject}, ${campaignBody}, ${send_type}, ${initialStatus}, ${scheduled_at || null}, ${gap_minutes}, ${gap_min_max}, ${business_hours_only}, ${daily_cap}, ${business_hours_start}, ${business_hours_end}, ${lead_ids.length}, ${signature || null}, ${from_email || null})
+      INSERT INTO email_campaigns (user_id, name, subject, body, send_type, status, scheduled_at, gap_minutes, gap_min_max, business_hours_only, daily_cap, business_hours_start, business_hours_end, total_recipients, signature, from_email, from_name)
+      VALUES (${userId}, ${name}, ${subject}, ${campaignBody}, ${send_type}, ${initialStatus}, ${scheduled_at || null}, ${gap_minutes}, ${gap_min_max}, ${business_hours_only}, ${daily_cap}, ${business_hours_start}, ${business_hours_end}, ${lead_ids.length}, ${signature || null}, ${from_email || null}, ${from_name || null})
       RETURNING *
     `
 

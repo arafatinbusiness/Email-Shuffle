@@ -103,6 +103,7 @@ CREATE TABLE IF NOT EXISTS email_campaigns (
   failed_count INTEGER DEFAULT 0,
   signature TEXT DEFAULT '',
   from_email TEXT DEFAULT '',
+  from_name TEXT DEFAULT '',
   created_at TIMESTAMP DEFAULT NOW(),
   updated_at TIMESTAMP DEFAULT NOW()
 );

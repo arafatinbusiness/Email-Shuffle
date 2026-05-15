@@ -85,7 +85,8 @@ export async function POST(request: Request) {
             bodyWithSignature,
             undefined,
             undefined,
-            senderEmail
+            senderEmail,
+            campaign.from_name || undefined
           )
 
           // Update recipient status
@@ -410,7 +411,8 @@ async function processScheduledCampaign(campaignId: number, userId: number) {
           bodyWithSignature,
           undefined,
           undefined,
-          senderEmail
+          senderEmail,
+          campaign.from_name || undefined
         )
 
         // Create a thread for this campaign email

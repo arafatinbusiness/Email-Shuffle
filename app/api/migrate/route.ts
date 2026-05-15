@@ -67,6 +67,11 @@ export async function POST() {
       CHECK (status IN ('pending', 'sending', 'sent', 'failed', 'skipped'))
     `
 
+    // Add from_name column to email_campaigns for per-campaign display name
+    await sql`
+      ALTER TABLE email_campaigns ADD COLUMN IF NOT EXISTS from_name TEXT DEFAULT ''
+    `
+
     return NextResponse.json({ success: true, message: 'Migration completed successfully' })
 
 
