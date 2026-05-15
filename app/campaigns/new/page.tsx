@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { RichTextEditor } from '@/components/rich-text-editor'
 import { Button } from '@/components/ui/button'
@@ -28,7 +28,7 @@ interface Lead {
   status: string
 }
 
-export default function NewCampaignPage() {
+function NewCampaignForm() {
   const router = useRouter()
 
   const [leads, setLeads] = useState<Lead[]>([])
@@ -95,6 +95,17 @@ export default function NewCampaignPage() {
             setCampaignSignature(c.signature || '')
             setFromEmail(c.from_email || '')
             setFromName(c.from_name || '')
+            // Pre-fill scheduled date/time if the campaign was scheduled
+            if (c.scheduled_at) {
+              const d = new Date(c.scheduled_at)
+              const year = d.getFullYear()
+              const month = String(d.getMonth() + 1).padStart(2, '0')
+              const day = String(d.getDate()).padStart(2, '0')
+              const hours = String(d.getHours()).padStart(2, '0')
+              const mins = String(d.getMinutes()).padStart(2, '0')
+              setScheduledDate(`${year}-${month}-${day}`)
+              setScheduledTime(`${hours}:${mins}`)
+            }
             toast.success('Campaign cloned! Edit the details below.')
           }
         })
@@ -142,6 +153,10 @@ export default function NewCampaignPage() {
           setMailboxEmail(mailbox.email || '')
           setMailboxSendAs(mailbox.send_as || '')
           setMailboxSignature(mailbox.signature || '')
+          // Default to main email (not alias) for "Send From"
+          if (mailbox.email && !fromEmail) {
+            setFromEmail(mailbox.email)
+          }
           // Auto-fill display name from mailbox default, but only if not already set (e.g., from clone)
           if (mailbox.default_from_name && !fromName) {
             setFromName(mailbox.default_from_name)
@@ -655,5 +670,17 @@ www.yourcompany.com`}
         </div>
       </div>
     </div>
+  )
+}
+
+export default function NewCampaignPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex items-center justify-center min-h-screen">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    }>
+      <NewCampaignForm />
+    </Suspense>
   )
 }
