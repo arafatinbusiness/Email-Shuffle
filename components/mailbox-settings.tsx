@@ -23,6 +23,7 @@ interface MailboxAccountData {
   created_at: string
   send_as: string | null
   signature: string | null
+  default_from_name: string | null
 }
 
 interface MailboxSettingsProps {
@@ -44,6 +45,7 @@ export function MailboxSettings({ onBack }: MailboxSettingsProps) {
   const [smtpPort, setSmtpPort] = useState(DEFAULT_SMTP_PORT)
   const [syncEnabled, setSyncEnabled] = useState(true)
   const [sendAs, setSendAs] = useState('')
+  const [defaultFromName, setDefaultFromName] = useState('')
   const [signature, setSignature] = useState('')
   const [savingSignature, setSavingSignature] = useState(false)
 
@@ -66,6 +68,7 @@ export function MailboxSettings({ onBack }: MailboxSettingsProps) {
           setSmtpPort(data.smtp_port)
           setSyncEnabled(data.sync_enabled)
           setSendAs(data.send_as || '')
+          setDefaultFromName(data.default_from_name || '')
           setSignature(data.signature || '')
         }
       }
@@ -96,6 +99,7 @@ export function MailboxSettings({ onBack }: MailboxSettingsProps) {
           smtp_port: smtpPort,
           sync_enabled: syncEnabled,
           send_as: sendAs || null,
+          default_from_name: defaultFromName || null,
         }),
       })
 
@@ -295,6 +299,20 @@ export function MailboxSettings({ onBack }: MailboxSettingsProps) {
             <p className="text-xs text-muted-foreground">
               Emails will be sent from this address instead of your main account email.
               Leave blank to use your main email.
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="default_from_name">Default Display Name</Label>
+            <Input
+              id="default_from_name"
+              value={defaultFromName}
+              onChange={(e) => setDefaultFromName(e.target.value)}
+              placeholder="e.g., Labintial Support"
+            />
+            <p className="text-xs text-muted-foreground">
+              This name will be auto-filled as the "Display Name" when creating new campaigns.
+              You can override it per campaign.
             </p>
           </div>
 

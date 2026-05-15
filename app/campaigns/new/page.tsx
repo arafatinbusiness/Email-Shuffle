@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { RichTextEditor } from '@/components/rich-text-editor'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -67,9 +67,40 @@ export default function NewCampaignPage() {
   const [selectedGroupId, setSelectedGroupId] = useState<string>('all')
   const [leadSearch, setLeadSearch] = useState('')
 
+  const searchParams = useSearchParams()
+
   useEffect(() => {
     loadData()
   }, [])
+
+  // If a clone campaign ID is provided, fetch and pre-fill the form
+  useEffect(() => {
+    const cloneId = searchParams?.get('clone')
+    if (cloneId) {
+      fetch(`/api/campaigns?id=${cloneId}`)
+        .then(res => res.ok ? res.json() : null)
+        .then((campaigns: any[]) => {
+          if (campaigns && campaigns.length > 0) {
+            const c = campaigns[0]
+            setCampaignName(`${c.name} (Copy)`)
+            setSubject(c.subject)
+            setBody(c.body)
+            setSendType(c.send_type || 'instant')
+            setGapMinutes(c.gap_minutes ? c.gap_minutes / 60 : 0.5)
+            setGapMinMax(c.gap_min_max ? c.gap_min_max / 60 : 1)
+            setBusinessHoursOnly(c.business_hours_only || false)
+            setDailyCap(c.daily_cap || 50)
+            setBusinessHoursStart(c.business_hours_start || '09:00')
+            setBusinessHoursEnd(c.business_hours_end || '18:00')
+            setCampaignSignature(c.signature || '')
+            setFromEmail(c.from_email || '')
+            setFromName(c.from_name || '')
+            toast.success('Campaign cloned! Edit the details below.')
+          }
+        })
+        .catch(() => {})
+    }
+  }, [searchParams])
 
   useEffect(() => {
     fetchFilteredLeads()
@@ -111,6 +142,10 @@ export default function NewCampaignPage() {
           setMailboxEmail(mailbox.email || '')
           setMailboxSendAs(mailbox.send_as || '')
           setMailboxSignature(mailbox.signature || '')
+          // Auto-fill display name from mailbox default, but only if not already set (e.g., from clone)
+          if (mailbox.default_from_name && !fromName) {
+            setFromName(mailbox.default_from_name)
+          }
         }
       }
       if (templatesRes.ok) setTemplates(await templatesRes.json())

@@ -130,8 +130,10 @@ export function CampaignManager() {
         const error = await res.json()
         throw new Error(error.error || 'Failed to clone campaign')
       }
-      toast.success('Campaign cloned!')
-      loadData()
+      const cloned = await res.json()
+      toast.success('Campaign cloned! Redirecting to edit...')
+      // Navigate to the campaign creation page with the cloned data pre-filled
+      router.push(`/campaigns/new?clone=${cloned.id}`)
     } catch (error: any) {
       toast.error(error.message)
     }

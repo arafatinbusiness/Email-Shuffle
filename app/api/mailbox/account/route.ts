@@ -14,7 +14,7 @@ export async function GET() {
     const sql = getDb()
     const userId = parseInt(session.user.id)
     const accounts = await sql`
-      SELECT id, email, imap_host, imap_port, smtp_host, smtp_port, sync_enabled, last_sync_at, created_at, send_as, signature
+      SELECT id, email, imap_host, imap_port, smtp_host, smtp_port, sync_enabled, last_sync_at, created_at, send_as, signature, default_from_name
       FROM mailbox_accounts
       WHERE user_id = ${userId}
       LIMIT 1
@@ -37,7 +37,7 @@ export async function POST(request: Request) {
     const sql = getDb()
     const userId = parseInt(session.user.id)
     const body = await request.json()
-    const { email, imap_host, imap_port, smtp_host, smtp_port, password, sync_enabled, send_as, signature } = body
+    const { email, imap_host, imap_port, smtp_host, smtp_port, password, sync_enabled, send_as, signature, default_from_name } = body
 
     if (!email || !imap_host || !smtp_host || !password) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
@@ -62,19 +62,20 @@ export async function POST(request: Request) {
           sync_enabled = ${sync_enabled !== false},
           send_as = ${send_as || null},
           signature = ${signature || null},
+          default_from_name = ${default_from_name || null},
           updated_at = NOW()
         WHERE user_id = ${userId}
       `
     } else {
       await sql`
-        INSERT INTO mailbox_accounts (user_id, email, imap_host, imap_port, smtp_host, smtp_port, encrypted_password, sync_enabled, send_as, signature)
-        VALUES (${userId}, ${email}, ${imap_host}, ${imap_port || 993}, ${smtp_host}, ${smtp_port || 465}, ${encryptedPassword}, ${sync_enabled !== false}, ${send_as || null}, ${signature || null})
+        INSERT INTO mailbox_accounts (user_id, email, imap_host, imap_port, smtp_host, smtp_port, encrypted_password, sync_enabled, send_as, signature, default_from_name)
+        VALUES (${userId}, ${email}, ${imap_host}, ${imap_port || 993}, ${smtp_host}, ${smtp_port || 465}, ${encryptedPassword}, ${sync_enabled !== false}, ${send_as || null}, ${signature || null}, ${default_from_name || null})
       `
     }
 
     // Re-fetch to return clean data
     const updated = await sql`
-      SELECT id, email, imap_host, imap_port, smtp_host, smtp_port, sync_enabled, last_sync_at, created_at, send_as, signature
+      SELECT id, email, imap_host, imap_port, smtp_host, smtp_port, sync_enabled, last_sync_at, created_at, send_as, signature, default_from_name
       FROM mailbox_accounts WHERE user_id = ${userId}
     `
 
