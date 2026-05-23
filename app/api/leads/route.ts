@@ -336,44 +336,31 @@ export async function POST(request: Request) {
 
 
 
-    try {
-      const result = await insertWithUpdates()
-      return NextResponse.json(result[0], { status: 201 })
-    } catch (error: any) {
-      // If the error is about missing current_website_updates column, retry without it
-      if (error?.code === '42703' && String(error?.message || '').includes('current_website_updates')) {
-        console.warn('current_website_updates column not found in DB, retrying without it')
-        try {
-          const result = await insertWithoutUpdates()
-          return NextResponse.json(result[0], { status: 201 })
-        } catch (innerError: any) {
-          // If image_link also missing, retry without media links
-          if (innerError?.code === '42703' && String(innerError?.message || '').includes('image_link')) {
-            console.warn('image_link column also not found in DB, retrying without media links')
-            const result = await insertWithoutMediaLinks()
-            return NextResponse.json(result[0], { status: 201 })
-          }
-          throw innerError
+    // Try insert strategies in order of completeness, falling back if any column is missing
+    const strategies = [
+      { name: 'with all columns', fn: insertWithUpdates },
+      { name: 'without current_website_updates', fn: insertWithoutUpdates },
+      { name: 'without media links', fn: insertWithoutMediaLinks },
+    ]
+
+    let lastError: any = null
+    for (const strategy of strategies) {
+      try {
+        const result = await strategy.fn()
+        return NextResponse.json(result[0], { status: 201 })
+      } catch (error: any) {
+        lastError = error
+        if (error?.code === '42703') {
+          console.warn(`Column missing in DB, retrying ${strategy.name}:`, error?.message)
+          continue // Try next strategy
         }
+        throw error // Non-column error, rethrow
       }
-      // If the error is about missing image_link column, retry without it
-      if (error?.code === '42703' && String(error?.message || '').includes('image_link')) {
-        console.warn('image_link column not found in DB, retrying without it')
-        try {
-          const result = await insertWithoutUpdates()
-          return NextResponse.json(result[0], { status: 201 })
-        } catch (innerError: any) {
-          // If image_link still missing in insertWithoutUpdates, retry without media links
-          if (innerError?.code === '42703' && String(innerError?.message || '').includes('image_link')) {
-            console.warn('image_link column still not found, retrying without media links')
-            const result = await insertWithoutMediaLinks()
-            return NextResponse.json(result[0], { status: 201 })
-          }
-          throw innerError
-        }
-      }
-      throw error
     }
+    // All strategies failed due to column errors
+    console.error('All insert strategies failed due to missing columns:', lastError)
+    throw lastError
+
 
 
   } catch (error) {
