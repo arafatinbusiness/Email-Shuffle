@@ -26,6 +26,7 @@ import {
   Ban,
   Eye,
   Copy,
+  FolderPlus,
 } from 'lucide-react'
 
 interface Campaign {
@@ -49,6 +50,7 @@ export function CampaignManager() {
   const [showDetailDialog, setShowDetailDialog] = useState<Campaign | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isSending, setIsSending] = useState<number | null>(null)
+  const [isCreatingGroup, setIsCreatingGroup] = useState<number | null>(null)
 
   useEffect(() => {
     loadData()
@@ -150,6 +152,30 @@ export function CampaignManager() {
     }
   }
 
+  const createGroupFromCampaign = async (campaignId: number) => {
+    setIsCreatingGroup(campaignId)
+    try {
+      const res = await fetch('/api/campaigns/create-group', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ campaign_id: campaignId, only_non_reply: true }),
+      })
+
+      if (!res.ok) {
+        const error = await res.json()
+        throw new Error(error.error || 'Failed to create group')
+      }
+
+      const result = await res.json()
+      toast.success(result.message)
+      setShowDetailDialog(null)
+    } catch (error: any) {
+      toast.error(error.message)
+    } finally {
+      setIsCreatingGroup(null)
+    }
+  }
+
   const getStatusBadge = (status: string) => {
     const config: Record<string, { label: string; color: string }> = {
       draft: { label: 'Draft', color: 'bg-gray-500/10 text-gray-400' },
@@ -165,14 +191,11 @@ export function CampaignManager() {
   }
 
   // Helper to format a timestamp string for display
-  // The DB stores timestamps as "timestamptz" (UTC). The API returns them as ISO strings with Z.
-  // new Date() correctly converts UTC to the user's local timezone.
   const formatDate = (dateStr: string) => {
     return new Date(dateStr).toLocaleString()
   }
 
   // Format gap from seconds to human-readable string
-  // gap_minutes is stored as seconds in the DB
   const formatGap = (seconds: number): string => {
     if (seconds < 60) {
       return `${seconds}s gap`
@@ -184,7 +207,6 @@ export function CampaignManager() {
     }
     return `${mins}min ${secs}s gap`
   }
-
 
   return (
     <div className="space-y-6">
@@ -258,7 +280,6 @@ export function CampaignManager() {
                       <Clock className="h-3 w-3" />
                       {campaign.send_type === 'instant' ? 'Instant' : campaign.send_type === 'scheduled' ? 'Scheduled' : formatGap(campaign.gap_minutes)}
                     </span>
-
                   </div>
                   <div className="flex items-center gap-1">
                     {campaign.status === 'draft' && (
@@ -390,6 +411,26 @@ export function CampaignManager() {
                   className="text-sm p-2 bg-muted rounded prose prose-sm dark:prose-invert max-w-none"
                   dangerouslySetInnerHTML={{ __html: showDetailDialog.body }}
                 />
+              </div>
+
+              {/* Create Group Button */}
+              <div className="border-t pt-4">
+                <Button
+                  className="w-full"
+                  variant="outline"
+                  onClick={() => createGroupFromCampaign(showDetailDialog.id)}
+                  disabled={isCreatingGroup === showDetailDialog.id}
+                >
+                  {isCreatingGroup === showDetailDialog.id ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <FolderPlus className="h-4 w-4 mr-2" />
+                  )}
+                  Create Group of Non-Reply Leads for Follow-up
+                </Button>
+                <p className="text-xs text-muted-foreground mt-2 text-center">
+                  Creates a lead group with only leads who haven't replied yet. Use this group for your next campaign.
+                </p>
               </div>
             </div>
           )}
