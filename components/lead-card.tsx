@@ -1,25 +1,41 @@
 'use client'
 
+import { useState, useEffect } from 'react'
 import { Lead, LAYER_DESCRIPTIONS, STATUS_CONFIG, PRIORITY_CONFIG, INTENT_LABELS, LEAD_TYPE_CONFIG } from '@/lib/types'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Mail, Calendar, Building2, Globe, MoreHorizontal, Flag, Target } from 'lucide-react'
+import { Mail, Calendar, Building2, Globe, MoreHorizontal, Flag, Target, FileText, Loader2 } from 'lucide-react'
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSeparator,
+  DropdownMenuLabel,
 } from '@/components/ui/dropdown-menu'
 import { format, isToday, isPast, isTomorrow } from 'date-fns'
+import { toast } from 'sonner'
+
+interface Template {
+  id: number
+  name: string
+  subject: string
+  body: string
+  category: string
+}
 
 interface LeadCardProps {
   lead: Lead
   onSelect: (lead: Lead) => void
   onDelete: (id: number) => void
+  onUseTemplate?: (lead: Lead, template: Template) => void
 }
 
-export function LeadCard({ lead, onSelect, onDelete }: LeadCardProps) {
+export function LeadCard({ lead, onSelect, onDelete, onUseTemplate }: LeadCardProps) {
+  const [templates, setTemplates] = useState<Template[]>([])
+  const [loadingTemplates, setLoadingTemplates] = useState(false)
+  const [showTemplates, setShowTemplates] = useState(false)
   const statusConfig = STATUS_CONFIG[lead.status]
   const layerInfo = LAYER_DESCRIPTIONS[lead.current_layer]
 
@@ -33,6 +49,36 @@ export function LeadCard({ lead, onSelect, onDelete }: LeadCardProps) {
   }
 
   const urgency = getUrgencyLabel()
+
+  const loadTemplates = async () => {
+    setLoadingTemplates(true)
+    try {
+      const res = await fetch('/api/templates')
+      if (res.ok) {
+        const data = await res.json()
+        setTemplates(data)
+      }
+    } catch {
+      toast.error('Failed to load templates')
+    } finally {
+      setLoadingTemplates(false)
+    }
+  }
+
+  const handleUseTemplate = (e: React.MouseEvent, template: Template) => {
+    e.stopPropagation()
+    if (onUseTemplate) {
+      onUseTemplate(lead, template)
+    }
+  }
+
+  const handleOpenTemplates = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (!showTemplates) {
+      loadTemplates()
+    }
+    setShowTemplates(!showTemplates)
+  }
 
   return (
     <Card 
@@ -103,18 +149,58 @@ export function LeadCard({ lead, onSelect, onDelete }: LeadCardProps) {
                   🤝 Customer
                 </Badge>
               )}
+              {lead.group_name && (
+                <Badge variant="outline" className="text-xs text-violet-500 border-violet-500/50 bg-violet-500/10">
+                  📁 {lead.group_name}
+                </Badge>
+              )}
             </div>
+
           </div>
-          <DropdownMenu>
+          <DropdownMenu open={showTemplates} onOpenChange={setShowTemplates}>
             <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
               <Button variant="ghost" size="icon" className="opacity-0 group-hover:opacity-100 transition-opacity">
                 <MoreHorizontal className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuLabel className="text-xs text-muted-foreground font-normal">
+                {lead.first_name} {lead.last_name}
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator />
               <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onSelect(lead); }}>
-                View Details
+                <Mail className="h-4 w-4 mr-2" />
+                View Details & Email
               </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuLabel className="text-xs">Use Template</DropdownMenuLabel>
+              {loadingTemplates ? (
+                <div className="px-2 py-2 flex items-center gap-2 text-xs text-muted-foreground">
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                  Loading templates...
+                </div>
+              ) : templates.length === 0 ? (
+                <div className="px-2 py-2 text-xs text-muted-foreground">
+                  No templates found. Create one in Templates tab.
+                </div>
+              ) : (
+                templates.map((template) => (
+                  <DropdownMenuItem
+                    key={template.id}
+                    onClick={(e) => handleUseTemplate(e, template)}
+                    className="flex flex-col items-start py-2"
+                  >
+                    <div className="flex items-center gap-2 w-full">
+                      <FileText className="h-3.5 w-3.5 text-primary shrink-0" />
+                      <span className="text-xs font-medium truncate">{template.name}</span>
+                    </div>
+                    <span className="text-[10px] text-muted-foreground truncate w-full pl-5.5">
+                      {template.subject.substring(0, 50)}{template.subject.length > 50 ? '...' : ''}
+                    </span>
+                  </DropdownMenuItem>
+                ))
+              )}
+              <DropdownMenuSeparator />
               <DropdownMenuItem 
                 onClick={(e) => { e.stopPropagation(); onDelete(lead.id); }}
                 className="text-destructive focus:text-destructive"
@@ -134,3 +220,4 @@ export function LeadCard({ lead, onSelect, onDelete }: LeadCardProps) {
     </Card>
   )
 }
+

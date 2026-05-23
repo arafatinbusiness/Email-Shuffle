@@ -1,5 +1,6 @@
 'use client'
 
+import { useState, useEffect } from 'react'
 import { Lead, LeadLayer, STATUS_CONFIG, LAYER_DESCRIPTIONS, LEAD_TYPE_CONFIG } from '@/lib/types'
 import { EmailGenerator } from './email-generator'
 import { Button } from '@/components/ui/button'
@@ -22,6 +23,11 @@ import {
   MessageSquare,
   User,
   FileText,
+  History,
+  Send,
+  Inbox,
+  Loader2,
+  Clock,
 } from 'lucide-react'
 import { format } from 'date-fns'
 
@@ -31,9 +37,61 @@ interface LeadDetailProps {
   onOpenChange: (open: boolean) => void
   onEdit: () => void
   onUpdate: (updates: Partial<Lead>) => Promise<void>
+  initialTemplate?: { subject: string; body: string } | null
 }
 
-export function LeadDetail({ lead, open, onOpenChange, onEdit, onUpdate }: LeadDetailProps) {
+interface EmailHistoryItem {
+  id: number
+  lead_id: number
+  user_id: number
+  layer: string
+  subject: string
+  body: string
+  generated_at: string
+}
+
+interface EmailMessageItem {
+  id: number
+  thread_id: number
+  direction: 'incoming' | 'outgoing'
+  subject: string
+  body: string
+  sender: string
+  recipient: string
+  message_id: string
+  is_read: boolean
+  sent_at: string
+  sync_state: string
+  lead_id: number
+}
+
+export function LeadDetail({ lead, open, onOpenChange, onEdit, onUpdate, initialTemplate }: LeadDetailProps) {
+  const [emailHistory, setEmailHistory] = useState<EmailHistoryItem[]>([])
+  const [emailMessages, setEmailMessages] = useState<EmailMessageItem[]>([])
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false)
+
+  useEffect(() => {
+    if (open && lead) {
+      loadEmailHistory(lead.id)
+    }
+  }, [open, lead?.id])
+
+  const loadEmailHistory = async (leadId: number) => {
+    setIsLoadingHistory(true)
+    try {
+      const res = await fetch(`/api/leads/${leadId}/emails`)
+      if (res.ok) {
+        const data = await res.json()
+        setEmailHistory(data.history || [])
+        setEmailMessages(data.messages || [])
+      }
+    } catch {
+      console.error('Failed to load email history')
+    } finally {
+      setIsLoadingHistory(false)
+    }
+  }
+
   if (!lead) return null
 
   const statusConfig = STATUS_CONFIG[lead.status]
@@ -70,10 +128,41 @@ export function LeadDetail({ lead, open, onOpenChange, onEdit, onUpdate }: LeadD
         }),
       })
       if (!res.ok) throw new Error('Failed to save')
+      // Reload history
+      loadEmailHistory(lead.id)
     } catch (error) {
       console.error('Failed to save custom email:', error)
       throw error
     }
+  }
+
+  // Group email history by layer
+  const groupedHistory: Record<string, EmailHistoryItem[]> = {}
+  for (const item of emailHistory) {
+    const layer = item.layer || 'unknown'
+    if (!groupedHistory[layer]) groupedHistory[layer] = []
+    groupedHistory[layer].push(item)
+  }
+
+  // Layer display names
+  const layerDisplayNames: Record<string, string> = {
+    'L1': 'L1 - First Contact',
+    'L2': 'L2 - Follow-up',
+    'L3': 'L3 - Strong Follow-up',
+    'L4': 'L4 - Break-up',
+    'L5+': 'L5+ - Final Persuasion',
+    'campaign': '📨 Campaign Email',
+    'custom': '✏️ Custom Email',
+  }
+
+  const layerColors: Record<string, string> = {
+    'L1': 'border-blue-500/30 bg-blue-500/5',
+    'L2': 'border-amber-500/30 bg-amber-500/5',
+    'L3': 'border-orange-500/30 bg-orange-500/5',
+    'L4': 'border-red-500/30 bg-red-500/5',
+    'L5+': 'border-purple-500/30 bg-purple-500/5',
+    'campaign': 'border-emerald-500/30 bg-emerald-500/5',
+    'custom': 'border-violet-500/30 bg-violet-500/5',
   }
 
   return (
@@ -106,10 +195,14 @@ export function LeadDetail({ lead, open, onOpenChange, onEdit, onUpdate }: LeadD
         </SheetHeader>
 
         <Tabs defaultValue="email" className="mt-4">
-          <TabsList className="grid w-full grid-cols-2">
+          <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="email" className="flex items-center gap-2">
               <MessageSquare className="h-4 w-4" />
               Email Generator
+            </TabsTrigger>
+            <TabsTrigger value="history" className="flex items-center gap-2">
+              <History className="h-4 w-4" />
+              Email History
             </TabsTrigger>
             <TabsTrigger value="details" className="flex items-center gap-2">
               <User className="h-4 w-4" />
@@ -124,7 +217,113 @@ export function LeadDetail({ lead, open, onOpenChange, onEdit, onUpdate }: LeadD
               onMarkSent={handleMarkSent}
               onSaveTemplate={handleSaveTemplate}
               onSaveCustomEmail={handleSaveCustomEmail}
+              initialTemplate={initialTemplate}
             />
+          </TabsContent>
+
+          <TabsContent value="history" className="mt-4 space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-medium text-muted-foreground">Email History</h3>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => loadEmailHistory(lead.id)}
+                disabled={isLoadingHistory}
+              >
+                <Loader2 className={`h-3 w-3 mr-1 ${isLoadingHistory ? 'animate-spin' : ''}`} />
+                Refresh
+              </Button>
+            </div>
+
+            {isLoadingHistory ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              </div>
+            ) : emailHistory.length === 0 && emailMessages.length === 0 ? (
+              <div className="text-center py-12">
+                <History className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
+                <p className="text-muted-foreground">No email history yet</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Emails sent via campaigns or saved from the generator will appear here
+                </p>
+              </div>
+            ) : (
+              <>
+                {/* Email History from generator/campaigns */}
+                {Object.entries(groupedHistory).map(([layer, items]) => (
+                  <div key={layer} className="space-y-2">
+                    <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+                      <Mail className="h-3 w-3" />
+                      {layerDisplayNames[layer] || layer}
+                      <span className="text-[10px] text-muted-foreground/60">({items.length})</span>
+                    </h4>
+                    {items.map((item) => (
+                      <Card key={item.id} className={`border ${layerColors[layer] || 'border-border'}`}>
+                        <CardHeader className="pb-1 pt-2 px-3">
+                          <div className="flex items-center justify-between">
+                            <CardTitle className="text-xs font-medium truncate flex-1">
+                              {item.subject}
+                            </CardTitle>
+                            <span className="text-[10px] text-muted-foreground whitespace-nowrap ml-2">
+                              {format(new Date(item.generated_at), 'MMM d, h:mm a')}
+                            </span>
+                          </div>
+                        </CardHeader>
+                        <CardContent className="px-3 pb-2">
+                          <p className="text-xs text-muted-foreground whitespace-pre-wrap line-clamp-3">
+                            {item.body}
+                          </p>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                ))}
+
+                {/* Actual sent/received emails from mailbox */}
+                {emailMessages.length > 0 && (
+                  <div className="space-y-2 mt-4">
+                    <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+                      <Send className="h-3 w-3" />
+                      Sent & Received Emails
+                      <span className="text-[10px] text-muted-foreground/60">({emailMessages.length})</span>
+                    </h4>
+                    {emailMessages.map((msg) => (
+                      <Card key={msg.id} className={`border ${
+                        msg.direction === 'outgoing' 
+                          ? 'border-blue-500/30 bg-blue-500/5' 
+                          : 'border-green-500/30 bg-green-500/5'
+                      }`}>
+                        <CardHeader className="pb-1 pt-2 px-3">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2 min-w-0 flex-1">
+                              {msg.direction === 'outgoing' ? (
+                                <Send className="h-3 w-3 text-blue-500 shrink-0" />
+                              ) : (
+                                <Inbox className="h-3 w-3 text-green-500 shrink-0" />
+                              )}
+                              <CardTitle className="text-xs font-medium truncate">
+                                {msg.subject}
+                              </CardTitle>
+                            </div>
+                            <span className="text-[10px] text-muted-foreground whitespace-nowrap ml-2">
+                              {format(new Date(msg.sent_at), 'MMM d, h:mm a')}
+                            </span>
+                          </div>
+                          <div className="text-[10px] text-muted-foreground mt-0.5">
+                            {msg.direction === 'outgoing' ? `To: ${msg.recipient}` : `From: ${msg.sender}`}
+                          </div>
+                        </CardHeader>
+                        <CardContent className="px-3 pb-2">
+                          <p className="text-xs text-muted-foreground whitespace-pre-wrap line-clamp-3">
+                            {msg.body}
+                          </p>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
           </TabsContent>
 
           <TabsContent value="details" className="mt-4 space-y-4">

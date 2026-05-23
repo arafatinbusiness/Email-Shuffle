@@ -11,6 +11,8 @@ export interface Lead {
   email: string
   company_name: string | null
   website: string | null
+  group_id: number | null
+  group_name: string | null
   status: LeadStatus
   current_layer: LeadLayer
   priority: LeadPriority | null
@@ -27,6 +29,7 @@ export interface Lead {
   created_at: string
   updated_at: string
 }
+
 
 
 export interface EmailHistory {

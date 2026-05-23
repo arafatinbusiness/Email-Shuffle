@@ -20,7 +20,8 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet'
-import { Loader2 } from 'lucide-react'
+import { Loader2, FolderOpen } from 'lucide-react'
+
 
 interface LeadFormProps {
   open: boolean
@@ -32,10 +33,16 @@ interface LeadFormProps {
 export function LeadForm({ open, onOpenChange, lead, onSubmit }: LeadFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [formData, setFormData] = useState<Partial<Lead>>(() => getInitialFormData(lead))
+  const [groups, setGroups] = useState<{ id: number; name: string; lead_count: number }[]>([])
 
   useEffect(() => {
     if (open) {
       setFormData(getInitialFormData(lead))
+      // Fetch groups
+      fetch('/api/lead-groups')
+        .then(res => res.ok ? res.json() : [])
+        .then(setGroups)
+        .catch(() => {})
     }
   }, [open, lead])
 
@@ -46,6 +53,7 @@ export function LeadForm({ open, onOpenChange, lead, onSubmit }: LeadFormProps) 
       email: lead?.email || '',
       company_name: lead?.company_name || '',
       website: lead?.website || '',
+      group_id: lead?.group_id || null,
       status: lead?.status || 'cold',
       current_layer: lead?.current_layer || 'L1',
       positive_points: lead?.positive_points || '',
@@ -56,6 +64,7 @@ export function LeadForm({ open, onOpenChange, lead, onSubmit }: LeadFormProps) 
       next_follow_up: lead?.next_follow_up?.split('T')[0] || '',
     }
   }
+
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -134,7 +143,31 @@ export function LeadForm({ open, onOpenChange, lead, onSubmit }: LeadFormProps) 
           </div>
 
           <div className="space-y-2">
+            <Label htmlFor="group_id" className="flex items-center gap-1">
+              <FolderOpen className="h-3.5 w-3.5" />
+              Group / Folder
+            </Label>
+            <Select
+              value={formData.group_id?.toString() || 'none'}
+              onValueChange={(value: string) => updateField('group_id', value === 'none' ? '' : value)}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select a group..." />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">📂 No Group</SelectItem>
+                {groups.map((g) => (
+                  <SelectItem key={g.id} value={g.id.toString()}>
+                    📁 {g.name} ({g.lead_count})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
             <Label htmlFor="lead_type">Type</Label>
+
             <Select
               value={formData.lead_type || 'lead'}
               onValueChange={(value: LeadType) => updateField('lead_type', value)}

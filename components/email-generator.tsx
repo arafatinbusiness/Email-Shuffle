@@ -18,14 +18,16 @@ interface EmailGeneratorProps {
   onMarkSent: () => void
   onSaveTemplate?: (layer: LeadLayer, subject: string, body: string) => Promise<void>
   onSaveCustomEmail?: (subject: string, body: string) => Promise<void>
+  initialTemplate?: { subject: string; body: string } | null
 }
 
-export function EmailGenerator({ lead, onLayerChange, onMarkSent, onSaveTemplate, onSaveCustomEmail }: EmailGeneratorProps) {
-  const [activeLayer, setActiveLayer] = useState<string>(lead.current_layer)
+export function EmailGenerator({ lead, onLayerChange, onMarkSent, onSaveTemplate, onSaveCustomEmail, initialTemplate }: EmailGeneratorProps) {
+  const [activeLayer, setActiveLayer] = useState<string>(initialTemplate ? 'custom' : lead.current_layer)
   const [copiedField, setCopiedField] = useState<'subject' | 'body' | null>(null)
-  const [customSubject, setCustomSubject] = useState('')
-  const [customBody, setCustomBody] = useState('')
+  const [customSubject, setCustomSubject] = useState(initialTemplate?.subject || '')
+  const [customBody, setCustomBody] = useState(initialTemplate?.body || '')
   const [isSaving, setIsSaving] = useState(false)
+
 
   const template = generateEmailTemplate(lead, activeLayer as LeadLayer)
   const subject = customSubject || template.subject

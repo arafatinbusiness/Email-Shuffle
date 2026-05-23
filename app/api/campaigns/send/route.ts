@@ -122,11 +122,18 @@ export async function POST(request: Request) {
             'synced'
           )
 
+          // Save to email_history for lead-level tracking with layer info
+          await sql`
+            INSERT INTO email_history (lead_id, user_id, layer, subject, body)
+            VALUES (${recipient.lead_id}, ${userId}, 'campaign', ${personalizedSubject}, ${bodyWithSignature})
+          `
+
           // Update lead's last_email_sent
           await sql`
             UPDATE leads SET last_email_sent = NOW(), status = CASE WHEN status = 'cold' THEN 'contacted' ELSE status END
             WHERE id = ${recipient.lead_id}
           `
+
 
           sentCount++
         } catch (error: any) {
@@ -446,12 +453,19 @@ async function processScheduledCampaign(campaignId: number, userId: number) {
           'synced'
         )
 
+        // Save to email_history for lead-level tracking
+        await retrySql(() => sql`
+          INSERT INTO email_history (lead_id, user_id, layer, subject, body)
+          VALUES (${recipient.lead_id}, ${userId}, 'campaign', ${personalizedSubject}, ${bodyWithSignature})
+        `)
+
         await retrySql(() => sql`
           UPDATE leads SET last_email_sent = NOW(), status = CASE WHEN status = 'cold' THEN 'contacted' ELSE status END
           WHERE id = ${recipient.lead_id}
         `)
 
         sentCount++
+
         
         // Update today's sent count for daily cap tracking
         if (camp.daily_cap && camp.daily_cap > 0) {

@@ -15,13 +15,32 @@ export async function GET(
     const { id } = await params
     const sql = getDb()
     const userId = parseInt(session.user.id)
-    const emails = await sql`
+    const leadId = parseInt(id)
+
+    // Fetch from email_history (generated/saved templates)
+    const emailHistory = await sql`
       SELECT eh.* FROM email_history eh
       JOIN leads l ON l.id = eh.lead_id
-      WHERE eh.lead_id = ${parseInt(id)} AND l.user_id = ${userId}
+      WHERE eh.lead_id = ${leadId} AND l.user_id = ${userId}
       ORDER BY eh.generated_at DESC
     `
-    return NextResponse.json(emails)
+
+    // Fetch from email_messages (actual sent/received emails via mailbox)
+    // Join through email_threads which may have lead_id
+    const emailMessages = await sql`
+      SELECT em.id, em.thread_id, em.direction, em.subject, em.body, em.sender, em.recipient,
+             em.message_id, em.is_read, em.sent_at, em.sync_state,
+             et.lead_id
+      FROM email_messages em
+      JOIN email_threads et ON et.id = em.thread_id
+      WHERE et.lead_id = ${leadId} AND em.user_id = ${userId}
+      ORDER BY em.sent_at DESC
+    `
+
+    return NextResponse.json({
+      history: emailHistory,
+      messages: emailMessages,
+    })
   } catch (error) {
     console.error('Failed to fetch email history:', error)
     return NextResponse.json({ error: 'Failed to fetch email history' }, { status: 500 })

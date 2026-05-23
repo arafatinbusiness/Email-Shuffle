@@ -14,8 +14,6 @@ export function exportToCSV(leads: Lead[]): string {
     'Type',
     'Priority',
     'Intent',
-    'Positive Points',
-    'Improvements',
     'Current Website Updates',
     'FB Ads Notes',
     'Pixel Status',
@@ -23,29 +21,56 @@ export function exportToCSV(leads: Lead[]): string {
     'Last Email Sent',
     'Next Follow Up',
     'Created At',
+    'Positive Point 1',
+    'Positive Point 2',
+    'Positive Point 3',
+    'Positive Point 4',
+    'Positive Point 5',
+    'Positive Point 6',
+    'Positive Point 7',
+    'Positive Point 8',
+    'Positive Point 9',
+    'Positive Point 10',
+    'Improvements 1',
+    'Improvements 2',
+    'Improvements 3',
+    'Improvements 4',
+    'Improvements 5',
+    'Improvements 6',
+    'Improvements 7',
+    'Improvements 8',
+    'Improvements 9',
+    'Improvements 10',
   ]
 
-  const rows = leads.map(lead => [
-    lead.first_name,
-    lead.last_name || '',
-    lead.email,
-    lead.company_name || '',
-    lead.website || '',
-    lead.status,
-    lead.current_layer,
-    lead.lead_type || 'lead',
-    lead.priority || '',
-    lead.intent || '',
-    lead.positive_points || '',
-    lead.improvements || '',
-    lead.current_website_updates || '',
-    lead.fb_ads_notes || '',
-    lead.pixel_status || '',
-    lead.custom_notes || '',
-    lead.last_email_sent || '',
-    lead.next_follow_up || '',
-    lead.created_at,
-  ])
+  const rows = leads.map(lead => {
+    // Split positive_points into up to 10 parts
+    const positiveParts = splitIntoParts(lead.positive_points || '', 10)
+    // Split improvements into up to 10 parts
+    const improvementParts = splitIntoParts(lead.improvements || '', 10)
+
+    return [
+      lead.first_name,
+      lead.last_name || '',
+      lead.email,
+      lead.company_name || '',
+      lead.website || '',
+      lead.status,
+      lead.current_layer,
+      lead.lead_type || 'lead',
+      lead.priority || '',
+      lead.intent || '',
+      lead.current_website_updates || '',
+      lead.fb_ads_notes || '',
+      lead.pixel_status || '',
+      lead.custom_notes || '',
+      lead.last_email_sent || '',
+      lead.next_follow_up || '',
+      lead.created_at,
+      ...positiveParts,
+      ...improvementParts,
+    ]
+  })
 
 
   const escapeCSV = (value: string) => {
@@ -74,6 +99,10 @@ export function parseCSV(content: string): Partial<Lead>[] {
   for (let i = 1; i < lines.length; i++) {
     const values = parseCSVLine(lines[i])
     const lead: Partial<Lead> = {}
+
+    // Collect numbered positive_points and improvements
+    const positiveParts: string[] = []
+    const improvementParts: string[] = []
 
     headers.forEach((header, index) => {
       const value = values[index]?.trim() || ''
@@ -146,9 +175,46 @@ export function parseCSV(content: string): Partial<Lead>[] {
         case 'follow_up':
           lead.next_follow_up = value || null
           break
-
+        default: {
+          // Handle numbered columns like "positive_point_1", "improvements_3", etc.
+          const positiveMatch = header.match(/^positive_?points?_?(\d+)$/)
+          if (positiveMatch) {
+            const num = parseInt(positiveMatch[1])
+            if (num >= 1 && num <= 10 && value) {
+              positiveParts[num - 1] = value
+            }
+            return
+          }
+          const improvementMatch = header.match(/^improvements?_?(\d+)$/)
+          if (improvementMatch) {
+            const num = parseInt(improvementMatch[1])
+            if (num >= 1 && num <= 10 && value) {
+              improvementParts[num - 1] = value
+            }
+            return
+          }
+          break
+        }
       }
     })
+
+    // Merge numbered parts into the main fields if they exist
+    if (positiveParts.length > 0) {
+      const merged = positiveParts.filter(p => p !== undefined && p !== '').join('\n')
+      if (merged) {
+        lead.positive_points = lead.positive_points
+          ? lead.positive_points + '\n' + merged
+          : merged
+      }
+    }
+    if (improvementParts.length > 0) {
+      const merged = improvementParts.filter(p => p !== undefined && p !== '').join('\n')
+      if (merged) {
+        lead.improvements = lead.improvements
+          ? lead.improvements + '\n' + merged
+          : merged
+      }
+    }
 
     // Only add if we have required fields
     if (lead.first_name && lead.email) {
@@ -158,6 +224,7 @@ export function parseCSV(content: string): Partial<Lead>[] {
 
   return leads
 }
+
 
 // Parse XLSX file content to lead data
 export function parseXLSX(data: ArrayBuffer): Partial<Lead>[] {
@@ -171,6 +238,10 @@ export function parseXLSX(data: ArrayBuffer): Partial<Lead>[] {
 
   for (const row of jsonData) {
     const lead: Partial<Lead> = {}
+
+    // Collect numbered positive_points and improvements
+    const positiveParts: string[] = []
+    const improvementParts: string[] = []
 
     for (const [key, value] of Object.entries(row)) {
       const header = key.trim().toLowerCase().replace(/\s+/g, '_')
@@ -244,7 +315,44 @@ export function parseXLSX(data: ArrayBuffer): Partial<Lead>[] {
         case 'follow_up':
           lead.next_follow_up = strValue || null
           break
+        default: {
+          // Handle numbered columns like "positive_point_1", "improvements_3", etc.
+          const positiveMatch = header.match(/^positive_?points?_?(\d+)$/)
+          if (positiveMatch) {
+            const num = parseInt(positiveMatch[1])
+            if (num >= 1 && num <= 10 && strValue) {
+              positiveParts[num - 1] = strValue
+            }
+            continue
+          }
+          const improvementMatch = header.match(/^improvements?_?(\d+)$/)
+          if (improvementMatch) {
+            const num = parseInt(improvementMatch[1])
+            if (num >= 1 && num <= 10 && strValue) {
+              improvementParts[num - 1] = strValue
+            }
+            continue
+          }
+          break
+        }
+      }
+    }
 
+    // Merge numbered parts into the main fields if they exist
+    if (positiveParts.length > 0) {
+      const merged = positiveParts.filter(p => p !== undefined && p !== '').join('\n')
+      if (merged) {
+        lead.positive_points = lead.positive_points
+          ? lead.positive_points + '\n' + merged
+          : merged
+      }
+    }
+    if (improvementParts.length > 0) {
+      const merged = improvementParts.filter(p => p !== undefined && p !== '').join('\n')
+      if (merged) {
+        lead.improvements = lead.improvements
+          ? lead.improvements + '\n' + merged
+          : merged
       }
     }
 
@@ -256,6 +364,7 @@ export function parseXLSX(data: ArrayBuffer): Partial<Lead>[] {
 
   return leads
 }
+
 
 // Parse a single CSV line handling quoted values
 function parseCSVLine(line: string): string[] {
@@ -285,7 +394,36 @@ function parseCSVLine(line: string): string[] {
   return result
 }
 
+// Split a string into N parts by newlines or numbered separators
+function splitIntoParts(text: string, count: number): string[] {
+  const parts: string[] = []
+  // Try splitting by newlines first
+  const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0)
+  
+  if (lines.length >= count) {
+    // If we have enough lines, take first N
+    for (let i = 0; i < count; i++) {
+      parts.push(lines[i] || '')
+    }
+  } else if (lines.length > 1) {
+    // Multiple lines but fewer than count - distribute
+    for (let i = 0; i < count; i++) {
+      parts.push(lines[i] || '')
+    }
+  } else {
+    // Single line or empty - put everything in first part
+    parts.push(text)
+    for (let i = 1; i < count; i++) {
+      parts.push('')
+    }
+  }
+  
+  return parts
+}
+
 function isValidStatus(value: string): value is LeadStatus {
+
+
   return ['cold', 'contacted', 'replied', 'converted', 'dead'].includes(value.toLowerCase())
 }
 

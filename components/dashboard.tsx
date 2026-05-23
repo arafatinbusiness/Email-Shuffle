@@ -1,9 +1,11 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
+
 import { useSession, signOut } from 'next-auth/react'
 import useSWR, { mutate } from 'swr'
-import { Lead, LeadStatus, LeadLayer } from '@/lib/types'
+import { Lead, LeadStatus, LeadLayer, LAYER_DESCRIPTIONS } from '@/lib/types'
+
 import { calculateNextFollowUp, NEXT_LAYER } from '@/lib/workflow-rules'
 import { exportToCSV, parseCSV, parseXLSX, downloadCSV } from '@/lib/excel-utils'
 import { LeadCard } from './lead-card'
@@ -35,6 +37,15 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog'
 import { 
   Plus, 
   Search, 
@@ -51,9 +62,15 @@ import {
   Handshake,
   Mail,
   Send,
-  FileText
+  FileText,
+  FolderOpen,
+  FolderPlus,
+  Pencil,
+  Trash2,
+  Loader2,
 } from 'lucide-react'
 import { toast } from 'sonner'
+
 
 const fetcher = (url: string) => fetch(url).then(res => {
   if (!res.ok) throw new Error('Failed to fetch')
@@ -67,12 +84,36 @@ export function Dashboard() {
   const [isFormOpen, setIsFormOpen] = useState(false)
   const [isDetailOpen, setIsDetailOpen] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
+  const [initialTemplate, setInitialTemplate] = useState<{ subject: string; body: string } | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
+
   const [statusFilter, setStatusFilter] = useState<LeadStatus | 'all'>('all')
   const [layerFilter, setLayerFilter] = useState<LeadLayer | 'all'>('all')
+  const [groupFilter, setGroupFilter] = useState<string>('all')
   const [activeTab, setActiveTab] = useState('actions')
   const [activeMailboxView, setActiveMailboxView] = useState<'inbox' | 'settings'>('inbox')
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // Group management state
+  const [groups, setGroups] = useState<{ id: number; name: string; lead_count: number }[]>([])
+  const [isGroupDialogOpen, setIsGroupDialogOpen] = useState(false)
+  const [groupNameInput, setGroupNameInput] = useState('')
+  const [editingGroup, setEditingGroup] = useState<{ id: number; name: string } | null>(null)
+  const [isSavingGroup, setIsSavingGroup] = useState(false)
+
+  // Load groups
+  const loadGroups = async () => {
+    try {
+      const res = await fetch('/api/lead-groups')
+      if (res.ok) setGroups(await res.json())
+    } catch {}
+  }
+
+  // Load groups on mount
+  useEffect(() => { loadGroups() }, [])
+
+
+
 
   // Separate leads and customers
   const leadsOnly = leads.filter(l => l.lead_type !== 'customer')
@@ -90,9 +131,12 @@ export function Dashboard() {
     
     const matchesStatus = statusFilter === 'all' || lead.status === statusFilter
     const matchesLayer = layerFilter === 'all' || lead.current_layer === layerFilter
+    const matchesGroup = groupFilter === 'all' || 
+      (groupFilter === 'null' ? !lead.group_id : lead.group_id?.toString() === groupFilter)
 
-    return matchesSearch && matchesStatus && matchesLayer
+    return matchesSearch && matchesStatus && matchesLayer && matchesGroup
   })
+
 
   const handleCreateLead = async (data: Partial<Lead>) => {
     try {
@@ -166,8 +210,19 @@ export function Dashboard() {
 
   const handleSelectLead = (lead: Lead) => {
     setSelectedLead(lead)
+    setInitialTemplate(null)
     setIsDetailOpen(true)
   }
+
+  // Handle using a template from the lead card dropdown
+  const handleUseTemplate = (lead: Lead, template: { id: number; name: string; subject: string; body: string; category: string }) => {
+    // Open the lead detail with the template pre-loaded
+    setSelectedLead(lead)
+    setInitialTemplate({ subject: template.subject, body: template.body })
+    setIsDetailOpen(true)
+    toast.success(`Template "${template.name}" loaded for ${lead.first_name}`)
+  }
+
 
   const handleEditLead = () => {
     setIsEditing(true)
@@ -433,10 +488,10 @@ export function Dashboard() {
                   className="pl-10"
                 />
               </div>
-              <div className="flex gap-2">
+              <div className="flex gap-2 flex-wrap">
                 <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as LeadStatus | 'all')}>
-                  <SelectTrigger className="w-[140px]">
-                    <Filter className="h-4 w-4 mr-2" />
+                  <SelectTrigger className="w-[130px]">
+                    <Filter className="h-4 w-4 mr-1" />
                     <SelectValue placeholder="Status" />
                   </SelectTrigger>
                   <SelectContent>
@@ -449,7 +504,7 @@ export function Dashboard() {
                   </SelectContent>
                 </Select>
                 <Select value={layerFilter} onValueChange={(v) => setLayerFilter(v as LeadLayer | 'all')}>
-                  <SelectTrigger className="w-[140px]">
+                  <SelectTrigger className="w-[110px]">
                     <SelectValue placeholder="Layer" />
                   </SelectTrigger>
                   <SelectContent>
@@ -461,7 +516,23 @@ export function Dashboard() {
                     <SelectItem value="L5+">L5+</SelectItem>
                   </SelectContent>
                 </Select>
+                <Select value={groupFilter} onValueChange={(v) => setGroupFilter(v)}>
+                  <SelectTrigger className="w-[150px]">
+                    <FolderOpen className="h-4 w-4 mr-1" />
+                    <SelectValue placeholder="Group" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">📁 All Groups</SelectItem>
+                    <SelectItem value="null">📂 Ungrouped</SelectItem>
+                    {groups.map((g) => (
+                      <SelectItem key={g.id} value={g.id.toString()}>
+                        📁 {g.name} ({g.lead_count})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
+
             </div>
 
             {isLoading ? (
@@ -484,8 +555,10 @@ export function Dashboard() {
                     lead={lead}
                     onSelect={handleSelectLead}
                     onDelete={handleDeleteLead}
+                    onUseTemplate={handleUseTemplate}
                   />
                 ))}
+
               </div>
             )}
           </TabsContent>
@@ -539,7 +612,9 @@ export function Dashboard() {
         onOpenChange={setIsDetailOpen}
         onEdit={handleEditLead}
         onUpdate={handleUpdateLead}
+        initialTemplate={initialTemplate}
       />
+
     </div>
   )
 }
