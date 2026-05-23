@@ -116,6 +116,9 @@ export function Dashboard() {
   const [bulkGroupId, setBulkGroupId] = useState<string>('')
   const [isBulkAssigning, setIsBulkAssigning] = useState(false)
 
+  // Default group for new leads (set when clicking "+" from group management)
+  const [defaultGroupId, setDefaultGroupId] = useState<number | null>(null)
+
 
 
   // Load groups
@@ -695,9 +698,13 @@ export function Dashboard() {
 
       <LeadForm
         open={isFormOpen}
-        onOpenChange={setIsFormOpen}
+        onOpenChange={(open) => {
+          setIsFormOpen(open)
+          if (!open) setDefaultGroupId(null)
+        }}
         lead={isEditing ? selectedLead : null}
         onSubmit={isEditing ? handleUpdateLead : handleCreateLead}
+        defaultGroupId={defaultGroupId}
       />
 
       <LeadDetail
@@ -934,10 +941,8 @@ export function Dashboard() {
                           setIsGroupDialogOpen(false)
                           setSelectedLead(null)
                           setIsEditing(false)
+                          setDefaultGroupId(g.id)
                           setIsFormOpen(true)
-                          // Pre-set the group in the form by passing it through a ref or state
-                          // For now, we'll set the group filter and open the add lead form
-                          // The user can select the group in the form
                         }}
                         title="Add lead to this group"
                       >

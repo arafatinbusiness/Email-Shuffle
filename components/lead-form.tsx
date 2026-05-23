@@ -28,9 +28,10 @@ interface LeadFormProps {
   onOpenChange: (open: boolean) => void
   lead?: Lead | null
   onSubmit: (data: Partial<Lead>) => Promise<void>
+  defaultGroupId?: number | null
 }
 
-export function LeadForm({ open, onOpenChange, lead, onSubmit }: LeadFormProps) {
+export function LeadForm({ open, onOpenChange, lead, onSubmit, defaultGroupId }: LeadFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [formData, setFormData] = useState<Partial<Lead>>(() => getInitialFormData(lead))
   const [groups, setGroups] = useState<{ id: number; name: string; lead_count: number }[]>([])
@@ -53,7 +54,7 @@ export function LeadForm({ open, onOpenChange, lead, onSubmit }: LeadFormProps) 
       email: lead?.email || '',
       company_name: lead?.company_name || '',
       website: lead?.website || '',
-      group_id: lead?.group_id || null,
+      group_id: lead?.group_id ?? defaultGroupId ?? null,
       status: lead?.status || 'cold',
       current_layer: lead?.current_layer || 'L1',
       positive_points: lead?.positive_points || '',
