@@ -350,7 +350,27 @@ function NewCampaignForm() {
                             { label: 'Company', token: '{{company}}' },
                             { label: 'Website', token: '{{website}}' },
                             { label: 'Positive Points', token: '{{positive_points}}' },
+                            { label: 'Positive Point 1', token: '{{positive_point_1}}' },
+                            { label: 'Positive Point 2', token: '{{positive_point_2}}' },
+                            { label: 'Positive Point 3', token: '{{positive_point_3}}' },
+                            { label: 'Positive Point 4', token: '{{positive_point_4}}' },
+                            { label: 'Positive Point 5', token: '{{positive_point_5}}' },
+                            { label: 'Positive Point 6', token: '{{positive_point_6}}' },
+                            { label: 'Positive Point 7', token: '{{positive_point_7}}' },
+                            { label: 'Positive Point 8', token: '{{positive_point_8}}' },
+                            { label: 'Positive Point 9', token: '{{positive_point_9}}' },
+                            { label: 'Positive Point 10', token: '{{positive_point_10}}' },
                             { label: 'Improvements', token: '{{improvements}}' },
+                            { label: 'Improvements 1', token: '{{improvements_1}}' },
+                            { label: 'Improvements 2', token: '{{improvements_2}}' },
+                            { label: 'Improvements 3', token: '{{improvements_3}}' },
+                            { label: 'Improvements 4', token: '{{improvements_4}}' },
+                            { label: 'Improvements 5', token: '{{improvements_5}}' },
+                            { label: 'Improvements 6', token: '{{improvements_6}}' },
+                            { label: 'Improvements 7', token: '{{improvements_7}}' },
+                            { label: 'Improvements 8', token: '{{improvements_8}}' },
+                            { label: 'Improvements 9', token: '{{improvements_9}}' },
+                            { label: 'Improvements 10', token: '{{improvements_10}}' },
                             { label: 'Current Website Updates', token: '{{current_website_updates}}' },
                             { label: 'FB Ads Notes', token: '{{fb_ads_notes}}' },
                             { label: 'Pixel Status', token: '{{pixel_status}}' },
@@ -358,6 +378,7 @@ function NewCampaignForm() {
                             { label: 'Video Link', token: '{{video_link}}' },
                             { label: 'Image Link', token: '{{image_link}}' },
                           ].map((t, i) => (
+
 
                             <button
                               key={i}
