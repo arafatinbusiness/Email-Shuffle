@@ -74,6 +74,8 @@ function NewCampaignForm() {
 
   // Subject personalization
   const [showSubjectTokens, setShowSubjectTokens] = useState(false)
+  // Body section collapsed state
+  const [bodyCollapsed, setBodyCollapsed] = useState(false)
 
   // Filters
   const [selectedGroupId, setSelectedGroupId] = useState<string>('all')
@@ -388,7 +390,7 @@ function NewCampaignForm() {
                               key={i}
                               type="button"
                               className="w-full text-left px-2 py-1.5 text-sm hover:bg-accent rounded flex items-center gap-2 group"
-                              onClick={(e) => {
+                              onMouseDown={(e) => {
                                 e.stopPropagation()
                                 e.preventDefault()
                                 setSubject(prev => prev + t.token)
@@ -484,23 +486,42 @@ function NewCampaignForm() {
             </Card>
           )}
 
-          {/* Email Body - full width */}
+          {/* Email Body - full width (collapsible) */}
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm">Email Body</CardTitle>
-              <CardDescription className="text-xs">
-                Use personalization tokens like {'{{first_name}}'}, {'{{company}}'}, {'{{positive_points}}'}, {'{{improvements}}'}, {'{{current_website_updates}}'} etc. Click "Personalize" in the editor toolbar to see all available fields.
-              </CardDescription>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-sm">Email Body</CardTitle>
+                  <CardDescription className="text-xs">
+                    Use personalization tokens like {'{{first_name}}'}, {'{{company}}'}, {'{{positive_points}}'}, {'{{improvements}}'}, {'{{current_website_updates}}'} etc. Click "Personalize" in the editor toolbar to see all available fields.
+                  </CardDescription>
+                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setBodyCollapsed(!bodyCollapsed)}
+                  className="h-7 text-xs shrink-0"
+                >
+                  {bodyCollapsed ? (
+                    <><ChevronRight className="h-3.5 w-3.5 mr-1" /> Expand</>
+                  ) : (
+                    <><ChevronDown className="h-3.5 w-3.5 mr-1" /> Collapse</>
+                  )}
+                </Button>
+              </div>
             </CardHeader>
-            <CardContent>
-              <RichTextEditor
-                content={body}
-                onChange={setBody}
-                placeholder="Write your email... Use {{first_name}}, {{company}}, etc."
-                minHeight="300px"
-                showPersonalization={true}
-              />
-            </CardContent>
+            {!bodyCollapsed && (
+              <CardContent>
+                <RichTextEditor
+                  content={body}
+                  onChange={setBody}
+                  placeholder="Write your email... Use {{first_name}}, {{company}}, etc."
+                  minHeight="300px"
+                  showPersonalization={true}
+                />
+              </CardContent>
+            )}
           </Card>
 
 
