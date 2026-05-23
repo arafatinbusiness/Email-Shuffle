@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, Suspense } from 'react'
+import { useState, useEffect, Suspense, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { RichTextEditor } from '@/components/rich-text-editor'
 import { Button } from '@/components/ui/button'
@@ -36,6 +36,7 @@ interface Lead {
 
 function NewCampaignForm() {
   const router = useRouter()
+  const subjectInputRef = useRef<HTMLInputElement>(null)
 
   const [leads, setLeads] = useState<Lead[]>([])
   const [groups, setGroups] = useState<{ id: number; name: string; lead_count: number }[]>([])
@@ -319,6 +320,7 @@ function NewCampaignForm() {
               <Label>Subject</Label>
               <div className="relative">
                 <Input
+                  ref={subjectInputRef}
                   value={subject}
                   onChange={(e) => setSubject(e.target.value)}
                   placeholder="Enter email subject..."
@@ -393,8 +395,7 @@ function NewCampaignForm() {
                                 setShowSubjectTokens(false)
                                 // Refocus the subject input after inserting token
                                 setTimeout(() => {
-                                  const subjectInput = document.querySelector('input[placeholder="Enter email subject..."]') as HTMLInputElement
-                                  subjectInput?.focus()
+                                  subjectInputRef.current?.focus()
                                 }, 0)
                               }}
                             >
