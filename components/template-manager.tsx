@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
+
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -45,9 +46,29 @@ export function TemplateManager() {
   const [templateBody, setTemplateBody] = useState('')
   const [templateCategory, setTemplateCategory] = useState('general')
   const [showSubjectTokens, setShowSubjectTokens] = useState(false)
+  const subjectInputRef = useRef<HTMLInputElement>(null)
 
+  const insertTokenAtCursor = (token: string) => {
+    const input = subjectInputRef.current
+    if (!input) {
+      setTemplateSubject(prev => prev + token)
+      return
+    }
+    const start = input.selectionStart ?? templateSubject.length
+    const end = input.selectionEnd ?? templateSubject.length
+    const newValue = templateSubject.substring(0, start) + token + templateSubject.substring(end)
+    setTemplateSubject(newValue)
+    setShowSubjectTokens(false)
+    // Refocus and set cursor position after the inserted token
+    requestAnimationFrame(() => {
+      input.focus()
+      const newCursorPos = start + token.length
+      input.setSelectionRange(newCursorPos, newCursorPos)
+    })
+  }
 
   useEffect(() => {
+
     loadTemplates()
   }, [])
 
@@ -199,11 +220,13 @@ export function TemplateManager() {
               <Label>Subject</Label>
               <div className="relative">
                 <Input
+                  ref={subjectInputRef}
                   value={templateSubject}
                   onChange={(e) => setTemplateSubject(e.target.value)}
                   placeholder="e.g., Hi {{first_name}}, quick question..."
                   className="pr-24"
                 />
+
                 <div className="absolute right-1 top-1/2 -translate-y-1/2">
                   <div className="relative">
                     <Button
@@ -262,11 +285,9 @@ export function TemplateManager() {
                               key={i}
                               type="button"
                               className="w-full text-left px-2 py-1.5 text-sm hover:bg-accent rounded flex items-center gap-2 group"
-                              onClick={() => {
-                                setTemplateSubject(prev => prev + t.token)
-                                setShowSubjectTokens(false)
-                              }}
+                              onClick={() => insertTokenAtCursor(t.token)}
                             >
+
                               <span className="flex-1">{t.label}</span>
                               <code className="text-[10px] text-muted-foreground bg-muted px-1 rounded group-hover:bg-background">
                                 {t.token}
