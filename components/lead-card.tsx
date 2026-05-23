@@ -31,9 +31,11 @@ interface LeadCardProps {
   onSelect: (lead: Lead) => void
   onDelete: (id: number) => void
   onUseTemplate?: (lead: Lead, template: Template) => void
+  selected?: boolean
+  onToggleSelect?: (id: number) => void
 }
 
-export function LeadCard({ lead, onSelect, onDelete, onUseTemplate }: LeadCardProps) {
+export function LeadCard({ lead, onSelect, onDelete, onUseTemplate, selected, onToggleSelect }: LeadCardProps) {
   const [templates, setTemplates] = useState<Template[]>([])
   const [loadingTemplates, setLoadingTemplates] = useState(false)
   const [showTemplates, setShowTemplates] = useState(false)
@@ -83,88 +85,97 @@ export function LeadCard({ lead, onSelect, onDelete, onUseTemplate }: LeadCardPr
 
   return (
     <Card 
-      className="group cursor-pointer transition-all hover:border-primary/50 hover:shadow-lg hover:shadow-primary/5 bg-card border-border"
+      className={`group cursor-pointer transition-all hover:border-primary/50 hover:shadow-lg hover:shadow-primary/5 bg-card border-border ${selected ? 'ring-2 ring-primary ring-offset-2 ring-offset-background' : ''}`}
       onClick={() => onSelect(lead)}
     >
       <CardContent className="p-4">
         <div className="flex items-start justify-between gap-3">
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-1">
-              <h3 className="font-semibold text-foreground truncate">
-                {lead.first_name} {lead.last_name}
-              </h3>
-              {urgency && (
-                <Badge variant="outline" className={urgency.className}>
-                  {urgency.label}
+          <div className="flex items-start gap-2 flex-1 min-w-0">
+            {onToggleSelect && (
+              <div className="pt-0.5 shrink-0" onClick={(e) => e.stopPropagation()}>
+                <input
+                  type="checkbox"
+                  checked={selected || false}
+                  onChange={() => onToggleSelect(lead.id)}
+                  className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary cursor-pointer"
+                />
+              </div>
+            )}
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2 mb-1">
+                <h3 className="font-semibold text-foreground truncate">
+                  {lead.first_name} {lead.last_name}
+                </h3>
+                {urgency && (
+                  <Badge variant="outline" className={urgency.className}>
+                    {urgency.label}
+                  </Badge>
+                )}
+              </div>
+              <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
+                <Mail className="h-3.5 w-3.5" />
+                <span className="truncate">{lead.email}</span>
+              </div>
+              <div className="flex flex-wrap gap-2 mb-3">
+                {lead.company_name && (
+                  <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                    <Building2 className="h-3 w-3" />
+                    <span>{lead.company_name}</span>
+                  </div>
+                )}
+                {lead.website && (
+                  <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                    <Globe className="h-3 w-3" />
+                    <span className="truncate max-w-[150px]">
+                      {lead.website.replace(/^https?:\/\//, '')}
+                    </span>
+                  </div>
+                )}
+              </div>
+              <div className="flex items-center gap-1.5 flex-wrap">
+                {lead.video_link && (
+                  <Video className="h-3 w-3 text-blue-400" />
+                )}
+                {lead.image_link && (
+                  <Image className="h-3 w-3 text-green-400" />
+                )}
+                <Badge className={`${statusConfig.bgColor} ${statusConfig.color} border-0`}>
+                  {statusConfig.label}
                 </Badge>
-              )}
+                <Badge variant="outline" className="border-primary/30 text-primary">
+                  {lead.current_layer} - {layerInfo.name}
+                </Badge>
+                {lead.priority && (
+                  <Badge 
+                    variant="outline" 
+                    className={`text-xs ${
+                      lead.priority === 'high' ? 'text-red-500 border-red-500/50 bg-red-500/10' :
+                      lead.priority === 'medium' ? 'text-amber-500 border-amber-500/50 bg-amber-500/10' :
+                      'text-slate-500 border-slate-500/50 bg-slate-500/10'
+                    }`}
+                  >
+                    <Flag className="h-3 w-3 mr-1" />
+                    {PRIORITY_CONFIG[lead.priority].label}
+                  </Badge>
+                )}
+                {lead.intent && (
+                  <Badge variant="secondary" className="text-xs">
+                    <Target className="h-3 w-3 mr-1" />
+                    {INTENT_LABELS[lead.intent].label}
+                  </Badge>
+                )}
+                {lead.lead_type === 'customer' && (
+                  <Badge variant="outline" className="text-xs text-emerald-500 border-emerald-500/50 bg-emerald-500/10">
+                    🤝 Customer
+                  </Badge>
+                )}
+                {lead.group_name && (
+                  <Badge variant="outline" className="text-xs text-violet-500 border-violet-500/50 bg-violet-500/10">
+                    📁 {lead.group_name}
+                  </Badge>
+                )}
+              </div>
             </div>
-            <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
-              <Mail className="h-3.5 w-3.5" />
-              <span className="truncate">{lead.email}</span>
-            </div>
-            <div className="flex flex-wrap gap-2 mb-3">
-              {lead.company_name && (
-                <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                  <Building2 className="h-3 w-3" />
-                  <span>{lead.company_name}</span>
-                </div>
-              )}
-              {lead.website && (
-                <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                  <Globe className="h-3 w-3" />
-                  <span className="truncate max-w-[150px]">
-                    {lead.website.replace(/^https?:\/\//, '')}
-                  </span>
-                </div>
-              )}
-            </div>
-            <div className="flex items-center gap-1.5 flex-wrap">
-              {lead.video_link && (
-                <Video className="h-3 w-3 text-blue-400" />
-              )}
-              {lead.image_link && (
-                <Image className="h-3 w-3 text-green-400" />
-              )}
-
-              <Badge className={`${statusConfig.bgColor} ${statusConfig.color} border-0`}>
-
-                {statusConfig.label}
-              </Badge>
-              <Badge variant="outline" className="border-primary/30 text-primary">
-                {lead.current_layer} - {layerInfo.name}
-              </Badge>
-              {lead.priority && (
-                <Badge 
-                  variant="outline" 
-                  className={`text-xs ${
-                    lead.priority === 'high' ? 'text-red-500 border-red-500/50 bg-red-500/10' :
-                    lead.priority === 'medium' ? 'text-amber-500 border-amber-500/50 bg-amber-500/10' :
-                    'text-slate-500 border-slate-500/50 bg-slate-500/10'
-                  }`}
-                >
-                  <Flag className="h-3 w-3 mr-1" />
-                  {PRIORITY_CONFIG[lead.priority].label}
-                </Badge>
-              )}
-              {lead.intent && (
-                <Badge variant="secondary" className="text-xs">
-                  <Target className="h-3 w-3 mr-1" />
-                  {INTENT_LABELS[lead.intent].label}
-                </Badge>
-              )}
-              {lead.lead_type === 'customer' && (
-                <Badge variant="outline" className="text-xs text-emerald-500 border-emerald-500/50 bg-emerald-500/10">
-                  🤝 Customer
-                </Badge>
-              )}
-              {lead.group_name && (
-                <Badge variant="outline" className="text-xs text-violet-500 border-violet-500/50 bg-violet-500/10">
-                  📁 {lead.group_name}
-                </Badge>
-              )}
-            </div>
-
           </div>
           <DropdownMenu open={showTemplates} onOpenChange={setShowTemplates}>
             <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>

@@ -109,6 +109,12 @@ export function Dashboard() {
   const [isExporting, setIsExporting] = useState(false)
   const [exportGroupSearch, setExportGroupSearch] = useState('')
 
+  // Bulk selection state
+  const [selectedLeadIds, setSelectedLeadIds] = useState<number[]>([])
+  const [isBulkGroupDialogOpen, setIsBulkGroupDialogOpen] = useState(false)
+  const [bulkGroupId, setBulkGroupId] = useState<string>('')
+  const [isBulkAssigning, setIsBulkAssigning] = useState(false)
+
 
 
   // Load groups
@@ -586,6 +592,35 @@ export function Dashboard() {
 
             </div>
 
+            {/* Bulk action bar */}
+            {selectedLeadIds.length > 0 && (
+              <div className="flex items-center justify-between bg-primary/10 border border-primary/20 rounded-lg px-4 py-2">
+                <span className="text-sm font-medium">
+                  {selectedLeadIds.length} lead{selectedLeadIds.length > 1 ? 's' : ''} selected
+                </span>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setBulkGroupId('')
+                      setIsBulkGroupDialogOpen(true)
+                    }}
+                  >
+                    <FolderOpen className="h-4 w-4 mr-1" />
+                    Move to Group
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setSelectedLeadIds([])}
+                  >
+                    Clear Selection
+                  </Button>
+                </div>
+              </div>
+            )}
+
             {isLoading ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {[...Array(6)].map((_, i) => (
@@ -599,17 +634,24 @@ export function Dashboard() {
                 </p>
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {filteredLeads.map((lead) => (
-                  <LeadCard
-                    key={lead.id}
-                    lead={lead}
-                    onSelect={handleSelectLead}
-                    onDelete={handleDeleteLead}
-                    onUseTemplate={handleUseTemplate}
-                  />
-                ))}
-
+              <div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {filteredLeads.map((lead) => (
+                    <LeadCard
+                      key={lead.id}
+                      lead={lead}
+                      onSelect={handleSelectLead}
+                      onDelete={handleDeleteLead}
+                      onUseTemplate={handleUseTemplate}
+                      selected={selectedLeadIds.includes(lead.id)}
+                      onToggleSelect={(id) => {
+                        setSelectedLeadIds(prev =>
+                          prev.includes(id) ? prev.filter(lid => lid !== id) : [...prev, id]
+                        )
+                      }}
+                    />
+                  ))}
+                </div>
               </div>
             )}
           </TabsContent>
@@ -755,6 +797,82 @@ export function Dashboard() {
         </DialogContent>
       </Dialog>
 
+
+      {/* Bulk Group Assignment Dialog */}
+      <Dialog open={isBulkGroupDialogOpen} onOpenChange={setIsBulkGroupDialogOpen}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Move Leads to Group</DialogTitle>
+            <DialogDescription>
+              Assign {selectedLeadIds.length} selected lead{selectedLeadIds.length > 1 ? 's' : ''} to a group.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Select Group</Label>
+              <div className="border rounded-md max-h-48 overflow-y-auto">
+                <button
+                  type="button"
+                  className={`w-full text-left px-3 py-2 text-sm hover:bg-accent transition-colors flex items-center gap-2 ${
+                    bulkGroupId === '' ? 'bg-accent font-medium' : ''
+                  }`}
+                  onClick={() => setBulkGroupId('')}
+                >
+                  📂 No Group (Remove from group)
+                </button>
+                {groups.map((g) => (
+                  <button
+                    key={g.id}
+                    type="button"
+                    className={`w-full text-left px-3 py-2 text-sm hover:bg-accent transition-colors flex items-center gap-2 ${
+                      bulkGroupId === g.id.toString() ? 'bg-accent font-medium' : ''
+                    }`}
+                    onClick={() => setBulkGroupId(g.id.toString())}
+                  >
+                    📁 {g.name}
+                    <span className="text-xs text-muted-foreground ml-auto">({g.lead_count})</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setIsBulkGroupDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              disabled={isBulkAssigning}
+              onClick={async () => {
+                setIsBulkAssigning(true)
+                try {
+                  const res = await fetch('/api/leads/groups', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      lead_ids: selectedLeadIds,
+                      group_id: bulkGroupId ? parseInt(bulkGroupId) : null,
+                    }),
+                  })
+                  if (!res.ok) throw new Error('Failed to assign group')
+                  toast.success(`Moved ${selectedLeadIds.length} lead${selectedLeadIds.length > 1 ? 's' : ''} to ${bulkGroupId ? groups.find(g => g.id.toString() === bulkGroupId)?.name : 'No Group'}`)
+                  setSelectedLeadIds([])
+                  setIsBulkGroupDialogOpen(false)
+                  await mutate('/api/leads')
+                  await loadGroups()
+                } catch {
+                  toast.error('Failed to assign group')
+                } finally {
+                  setIsBulkAssigning(false)
+                }
+              }}
+            >
+              {isBulkAssigning && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              <FolderOpen className="h-4 w-4 mr-2" />
+              Move {selectedLeadIds.length} Lead{selectedLeadIds.length > 1 ? 's' : ''}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Group Management Dialog */}
       <Dialog open={isGroupDialogOpen} onOpenChange={setIsGroupDialogOpen}>
