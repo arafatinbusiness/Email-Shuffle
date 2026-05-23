@@ -103,6 +103,12 @@ export function Dashboard() {
   const [editingGroup, setEditingGroup] = useState<{ id: number; name: string } | null>(null)
   const [isSavingGroup, setIsSavingGroup] = useState(false)
 
+  // Export dialog state
+  const [isExportDialogOpen, setIsExportDialogOpen] = useState(false)
+  const [exportGroupId, setExportGroupId] = useState<string>('all')
+  const [isExporting, setIsExporting] = useState(false)
+
+
   // Load groups
   const loadGroups = async () => {
     try {
@@ -232,13 +238,35 @@ export function Dashboard() {
     setIsFormOpen(true)
   }
 
-  // Excel Export
+  // Excel Export - opens dialog to choose group
   const handleExport = () => {
-    const csv = exportToCSV(leads)
-    const date = new Date().toISOString().split('T')[0]
-    downloadCSV(csv, `leads-export-${date}.csv`)
-    toast.success('Leads exported to CSV')
+    setExportGroupId('all')
+    setIsExportDialogOpen(true)
   }
+
+  const handleExportConfirm = async () => {
+    setIsExporting(true)
+    try {
+      let leadsToExport = leads
+      if (exportGroupId !== 'all') {
+        const groupId = parseInt(exportGroupId)
+        leadsToExport = leads.filter(l => l.group_id === groupId)
+      }
+      const csv = exportToCSV(leadsToExport)
+      const date = new Date().toISOString().split('T')[0]
+      const groupName = exportGroupId === 'all' 
+        ? 'all-leads' 
+        : groups.find(g => g.id.toString() === exportGroupId)?.name?.replace(/\s+/g, '-').toLowerCase() || 'group'
+      downloadCSV(csv, `leads-export-${groupName}-${date}.csv`)
+      toast.success(`Exported ${leadsToExport.length} leads to CSV`)
+      setIsExportDialogOpen(false)
+    } catch {
+      toast.error('Failed to export leads')
+    } finally {
+      setIsExporting(false)
+    }
+  }
+
 
   // Extract column names from the first row of the imported file
   const extractAndSaveColumns = async (leads: Partial<Lead>[]) => {
@@ -633,8 +661,61 @@ export function Dashboard() {
         initialTemplate={initialTemplate}
       />
 
+      {/* Export Dialog */}
+      <Dialog open={isExportDialogOpen} onOpenChange={setIsExportDialogOpen}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Export Leads</DialogTitle>
+            <DialogDescription>
+              Choose which leads to export as CSV.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Select Group</Label>
+              <Select value={exportGroupId} onValueChange={setExportGroupId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a group..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">📁 All Leads ({leads.length})</SelectItem>
+                  <SelectItem value="null">📂 Ungrouped</SelectItem>
+                  {groups.map((g) => (
+                    <SelectItem key={g.id} value={g.id.toString()}>
+                      📁 {g.name} ({g.lead_count})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="text-sm text-muted-foreground">
+              {exportGroupId === 'all' 
+                ? `Will export all ${leads.length} leads`
+                : exportGroupId === 'null'
+                  ? `Will export ungrouped leads`
+                  : (() => {
+                      const g = groups.find(g => g.id.toString() === exportGroupId)
+                      return g ? `Will export ${g.lead_count} leads from "${g.name}"` : ''
+                    })()
+              }
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setIsExportDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleExportConfirm} disabled={isExporting}>
+              {isExporting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              <Download className="h-4 w-4 mr-2" />
+              Export CSV
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Group Management Dialog */}
       <Dialog open={isGroupDialogOpen} onOpenChange={setIsGroupDialogOpen}>
+
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>{editingGroup ? 'Edit Group' : 'Create New Group'}</DialogTitle>
