@@ -386,9 +386,16 @@ function NewCampaignForm() {
                               key={i}
                               type="button"
                               className="w-full text-left px-2 py-1.5 text-sm hover:bg-accent rounded flex items-center gap-2 group"
-                              onClick={() => {
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                e.preventDefault()
                                 setSubject(prev => prev + t.token)
                                 setShowSubjectTokens(false)
+                                // Refocus the subject input after inserting token
+                                setTimeout(() => {
+                                  const subjectInput = document.querySelector('input[placeholder="Enter email subject..."]') as HTMLInputElement
+                                  subjectInput?.focus()
+                                }, 0)
                               }}
                             >
                               <span className="flex-1">{t.label}</span>
