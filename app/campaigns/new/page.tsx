@@ -307,8 +307,8 @@ function NewCampaignForm() {
       {/* Form */}
       <div className="max-w-7xl mx-auto px-4 py-6">
         <div className="space-y-6">
-          {/* Top row: Campaign Name + Subject + Layer + Send From + Display Name */}
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+          {/* Top row: Campaign Name + Layer + Send From + Display Name */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
 
             <div className="space-y-1.5">
               <Label>Campaign Name</Label>
@@ -319,7 +319,55 @@ function NewCampaignForm() {
               />
             </div>
             <div className="space-y-1.5">
-              <Label>Subject</Label>
+              <Label>Outreach Layer</Label>
+              <select
+                className="flex h-10 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                value={campaignLayer}
+                onChange={(e) => setCampaignLayer(e.target.value)}
+              >
+                <option value="campaign">None (General Campaign)</option>
+                <option value="L1">L1 - First Contact</option>
+                <option value="L2">L2 - Follow Up</option>
+                <option value="L3">L3 - Second Follow Up</option>
+                <option value="L4">L4 - Third Follow Up</option>
+                <option value="L5+">L5+ - Extended Follow Up</option>
+              </select>
+              <p className="text-[10px] text-muted-foreground">Tags sent emails under this layer in lead history</p>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Send From</Label>
+
+              <select
+                className="flex h-10 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                value={fromEmail}
+                onChange={(e) => setFromEmail(e.target.value)}
+              >
+                <option value="">Default (mailbox setting)</option>
+                {mailboxEmail && <option value={mailboxEmail}>{mailboxEmail} (main)</option>}
+                {mailboxSendAs && mailboxSendAs !== mailboxEmail && (
+                  <option value={mailboxSendAs}>{mailboxSendAs} (alias)</option>
+                )}
+              </select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Display Name</Label>
+              <Input
+                value={fromName}
+                onChange={(e) => setFromName(e.target.value)}
+                placeholder="e.g., Labintial (leave empty for default)"
+              />
+            </div>
+          </div>
+
+          {/* Subject - standalone card, far from Email Body */}
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm">Email Subject</CardTitle>
+              <CardDescription className="text-xs">
+                Use personalization tokens like {'{{first_name}}'}, {'{{company}}'}, etc.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
               <div className="relative">
                 <Input
                   ref={subjectInputRef}
@@ -383,9 +431,6 @@ function NewCampaignForm() {
                             { label: 'Video Link', token: '{{video_link}}' },
                             { label: 'Image Link', token: '{{image_link}}' },
                           ].map((t, i) => (
-
-
-
                             <button
                               key={i}
                               type="button"
@@ -395,7 +440,6 @@ function NewCampaignForm() {
                                 e.preventDefault()
                                 setSubject(prev => prev + t.token)
                                 setShowSubjectTokens(false)
-                                // Refocus the subject input after inserting token
                                 setTimeout(() => {
                                   subjectInputRef.current?.focus()
                                 }, 0)
@@ -418,47 +462,8 @@ function NewCampaignForm() {
                   </div>
                 </div>
               </div>
-            </div>
-            <div className="space-y-1.5">
-              <Label>Outreach Layer</Label>
-              <select
-                className="flex h-10 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                value={campaignLayer}
-                onChange={(e) => setCampaignLayer(e.target.value)}
-              >
-                <option value="campaign">None (General Campaign)</option>
-                <option value="L1">L1 - First Contact</option>
-                <option value="L2">L2 - Follow Up</option>
-                <option value="L3">L3 - Second Follow Up</option>
-                <option value="L4">L4 - Third Follow Up</option>
-                <option value="L5+">L5+ - Extended Follow Up</option>
-              </select>
-              <p className="text-[10px] text-muted-foreground">Tags sent emails under this layer in lead history</p>
-            </div>
-            <div className="space-y-1.5">
-              <Label>Send From</Label>
-
-              <select
-                className="flex h-10 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                value={fromEmail}
-                onChange={(e) => setFromEmail(e.target.value)}
-              >
-                <option value="">Default (mailbox setting)</option>
-                {mailboxEmail && <option value={mailboxEmail}>{mailboxEmail} (main)</option>}
-                {mailboxSendAs && mailboxSendAs !== mailboxEmail && (
-                  <option value={mailboxSendAs}>{mailboxSendAs} (alias)</option>
-                )}
-              </select>
-            </div>
-            <div className="space-y-1.5">
-              <Label>Display Name</Label>
-              <Input
-                value={fromName}
-                onChange={(e) => setFromName(e.target.value)}
-                placeholder="e.g., Labintial (leave empty for default)"
-              />
-            </div>
-          </div>
+            </CardContent>
+          </Card>
 
           {/* Template Selector */}
           {templates.length > 0 && (
@@ -485,45 +490,6 @@ function NewCampaignForm() {
               </CardContent>
             </Card>
           )}
-
-          {/* Email Body - full width (collapsible) */}
-          <Card>
-            <CardHeader className="pb-2">
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle className="text-sm">Email Body</CardTitle>
-                  <CardDescription className="text-xs">
-                    Use personalization tokens like {'{{first_name}}'}, {'{{company}}'}, {'{{positive_points}}'}, {'{{improvements}}'}, {'{{current_website_updates}}'} etc. Click "Personalize" in the editor toolbar to see all available fields.
-                  </CardDescription>
-                </div>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setBodyCollapsed(!bodyCollapsed)}
-                  className="h-7 text-xs shrink-0"
-                >
-                  {bodyCollapsed ? (
-                    <><ChevronRight className="h-3.5 w-3.5 mr-1" /> Expand</>
-                  ) : (
-                    <><ChevronDown className="h-3.5 w-3.5 mr-1" /> Collapse</>
-                  )}
-                </Button>
-              </div>
-            </CardHeader>
-            {!bodyCollapsed && (
-              <CardContent>
-                <RichTextEditor
-                  content={body}
-                  onChange={setBody}
-                  placeholder="Write your email... Use {{first_name}}, {{company}}, etc."
-                  minHeight="300px"
-                  showPersonalization={true}
-                />
-              </CardContent>
-            )}
-          </Card>
-
 
           {/* Signature */}
           <Card>
@@ -803,6 +769,44 @@ www.yourcompany.com`}
               </CardContent>
             </Card>
           </div>
+
+          {/* Email Body - at the very bottom, far from Subject */}
+          <Card>
+            <CardHeader className="pb-2">
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-sm">Email Body</CardTitle>
+                  <CardDescription className="text-xs">
+                    Use personalization tokens like {'{{first_name}}'}, {'{{company}}'}, {'{{positive_points}}'}, {'{{improvements}}'}, {'{{current_website_updates}}'} etc. Click "Personalize" in the editor toolbar to see all available fields.
+                  </CardDescription>
+                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setBodyCollapsed(!bodyCollapsed)}
+                  className="h-7 text-xs shrink-0"
+                >
+                  {bodyCollapsed ? (
+                    <><ChevronRight className="h-3.5 w-3.5 mr-1" /> Expand</>
+                  ) : (
+                    <><ChevronDown className="h-3.5 w-3.5 mr-1" /> Collapse</>
+                  )}
+                </Button>
+              </div>
+            </CardHeader>
+            {!bodyCollapsed && (
+              <CardContent>
+                <RichTextEditor
+                  content={body}
+                  onChange={setBody}
+                  placeholder="Write your email... Use {{first_name}}, {{company}}, etc."
+                  minHeight="300px"
+                  showPersonalization={true}
+                />
+              </CardContent>
+            )}
+          </Card>
 
           {/* Submit */}
           <Button onClick={createCampaign} disabled={isCreating} className="w-full" size="lg">
