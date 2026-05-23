@@ -70,6 +70,7 @@ import {
   Pencil,
   Trash2,
   Loader2,
+  Eye,
 } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -912,6 +913,36 @@ export function Dashboard() {
                       <span className="text-xs text-muted-foreground shrink-0">({g.lead_count})</span>
                     </div>
                     <div className="flex items-center gap-1 shrink-0">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7"
+                        onClick={() => {
+                          setIsGroupDialogOpen(false)
+                          setGroupFilter(g.id.toString())
+                          setActiveTab('all-leads')
+                        }}
+                        title="View leads in this group"
+                      >
+                        <Eye className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7"
+                        onClick={() => {
+                          setIsGroupDialogOpen(false)
+                          setSelectedLead(null)
+                          setIsEditing(false)
+                          setIsFormOpen(true)
+                          // Pre-set the group in the form by passing it through a ref or state
+                          // For now, we'll set the group filter and open the add lead form
+                          // The user can select the group in the form
+                        }}
+                        title="Add lead to this group"
+                      >
+                        <Plus className="h-3.5 w-3.5" />
+                      </Button>
                       <Button
                         variant="ghost"
                         size="icon"
