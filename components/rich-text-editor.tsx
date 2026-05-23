@@ -26,7 +26,17 @@ import {
   ChevronDown,
   ChevronRight,
   ExternalLink,
+  Video,
+  Image,
+  ThumbsUp,
+  TrendingUp,
+  Globe,
+  RefreshCw,
+  Megaphone,
+  Activity,
+  FileText,
 } from 'lucide-react'
+
 import { useState, useEffect, useCallback } from 'react'
 
 interface RichTextEditorProps {
@@ -51,7 +61,30 @@ const DEFAULT_TOKENS = [
   { label: 'FB Ads Notes', token: '{{fb_ads_notes}}', icon: 'Megaphone' },
   { label: 'Pixel Status', token: '{{pixel_status}}', icon: 'Activity' },
   { label: 'Custom Notes', token: '{{custom_notes}}', icon: 'FileText' },
+  { label: 'Video Link', token: '{{video_link}}', icon: 'Video' },
+  { label: 'Image Link', token: '{{image_link}}', icon: 'Image' },
+  { label: 'Positive Point 1', token: '{{positive_point_1}}', icon: 'ThumbsUp' },
+  { label: 'Positive Point 2', token: '{{positive_point_2}}', icon: 'ThumbsUp' },
+  { label: 'Positive Point 3', token: '{{positive_point_3}}', icon: 'ThumbsUp' },
+  { label: 'Positive Point 4', token: '{{positive_point_4}}', icon: 'ThumbsUp' },
+  { label: 'Positive Point 5', token: '{{positive_point_5}}', icon: 'ThumbsUp' },
+  { label: 'Positive Point 6', token: '{{positive_point_6}}', icon: 'ThumbsUp' },
+  { label: 'Positive Point 7', token: '{{positive_point_7}}', icon: 'ThumbsUp' },
+  { label: 'Positive Point 8', token: '{{positive_point_8}}', icon: 'ThumbsUp' },
+  { label: 'Positive Point 9', token: '{{positive_point_9}}', icon: 'ThumbsUp' },
+  { label: 'Positive Point 10', token: '{{positive_point_10}}', icon: 'ThumbsUp' },
+  { label: 'Improvements 1', token: '{{improvements_1}}', icon: 'TrendingUp' },
+  { label: 'Improvements 2', token: '{{improvements_2}}', icon: 'TrendingUp' },
+  { label: 'Improvements 3', token: '{{improvements_3}}', icon: 'TrendingUp' },
+  { label: 'Improvements 4', token: '{{improvements_4}}', icon: 'TrendingUp' },
+  { label: 'Improvements 5', token: '{{improvements_5}}', icon: 'TrendingUp' },
+  { label: 'Improvements 6', token: '{{improvements_6}}', icon: 'TrendingUp' },
+  { label: 'Improvements 7', token: '{{improvements_7}}', icon: 'TrendingUp' },
+  { label: 'Improvements 8', token: '{{improvements_8}}', icon: 'TrendingUp' },
+  { label: 'Improvements 9', token: '{{improvements_9}}', icon: 'TrendingUp' },
+  { label: 'Improvements 10', token: '{{improvements_10}}', icon: 'TrendingUp' },
 ]
+
 
 
 export function RichTextEditor({
@@ -187,10 +220,30 @@ export function RichTextEditor({
     </Button>
   )
 
+  const getTokenIcon = (iconName: string) => {
+    const className = 'h-3.5 w-3.5 text-muted-foreground shrink-0'
+    switch (iconName) {
+      case 'User': return <User className={className} />
+      case 'Building2': return <Building2 className={className} />
+      case 'Mail': return <Mail className={className} />
+      case 'Globe': return <Globe className={className} />
+      case 'ThumbsUp': return <ThumbsUp className={className} />
+      case 'TrendingUp': return <TrendingUp className={className} />
+      case 'RefreshCw': return <RefreshCw className={className} />
+      case 'Megaphone': return <Megaphone className={className} />
+      case 'Activity': return <Activity className={className} />
+      case 'FileText': return <FileText className={className} />
+      case 'Video': return <Video className={className} />
+      case 'Image': return <Image className={className} />
+      default: return <Variable className={className} />
+    }
+  }
+
   const allTokens = [...DEFAULT_TOKENS, ...customTokens]
 
 
   return (
+
     <div className="border rounded-md overflow-hidden">
       <div className="flex flex-wrap items-center gap-0.5 p-1 border-b bg-muted/50">
         <ToolbarButton
@@ -353,13 +406,8 @@ export function RichTextEditor({
                       className="w-full text-left px-2 py-1.5 text-sm hover:bg-accent rounded flex items-center gap-2 group"
                       onClick={() => insertToken(t.token)}
                     >
-                      {t.icon === 'User' ? (
-                        <User className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                      ) : t.icon === 'Building2' ? (
-                        <Building2 className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                      ) : (
-                        <Mail className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                      )}
+                        {getTokenIcon(t.icon)}
+
                       <span className="flex-1">{t.label}</span>
                       <code className="text-[10px] text-muted-foreground bg-muted px-1 rounded group-hover:bg-background">
                         {t.token}

@@ -349,7 +349,16 @@ function NewCampaignForm() {
                             { label: 'Full Name', token: '{{full_name}}' },
                             { label: 'Company', token: '{{company}}' },
                             { label: 'Website', token: '{{website}}' },
+                            { label: 'Positive Points', token: '{{positive_points}}' },
+                            { label: 'Improvements', token: '{{improvements}}' },
+                            { label: 'Current Website Updates', token: '{{current_website_updates}}' },
+                            { label: 'FB Ads Notes', token: '{{fb_ads_notes}}' },
+                            { label: 'Pixel Status', token: '{{pixel_status}}' },
+                            { label: 'Custom Notes', token: '{{custom_notes}}' },
+                            { label: 'Video Link', token: '{{video_link}}' },
+                            { label: 'Image Link', token: '{{image_link}}' },
                           ].map((t, i) => (
+
                             <button
                               key={i}
                               type="button"
