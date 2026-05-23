@@ -107,6 +107,8 @@ export function Dashboard() {
   const [isExportDialogOpen, setIsExportDialogOpen] = useState(false)
   const [exportGroupId, setExportGroupId] = useState<string>('all')
   const [isExporting, setIsExporting] = useState(false)
+  const [exportGroupSearch, setExportGroupSearch] = useState('')
+
 
 
   // Load groups
@@ -241,8 +243,10 @@ export function Dashboard() {
   // Excel Export - opens dialog to choose group
   const handleExport = () => {
     setExportGroupId('all')
+    setExportGroupSearch('')
     setIsExportDialogOpen(true)
   }
+
 
   const handleExportConfirm = async () => {
     setIsExporting(true)
@@ -673,20 +677,57 @@ export function Dashboard() {
           <div className="space-y-4">
             <div className="space-y-2">
               <Label>Select Group</Label>
-              <Select value={exportGroupId} onValueChange={setExportGroupId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a group..." />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">📁 All Leads ({leads.length})</SelectItem>
-                  <SelectItem value="null">📂 Ungrouped</SelectItem>
-                  {groups.map((g) => (
-                    <SelectItem key={g.id} value={g.id.toString()}>
-                      📁 {g.name} ({g.lead_count})
-                    </SelectItem>
+              <div className="relative">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                <Input
+                  placeholder="Search groups..."
+                  value={exportGroupSearch}
+                  onChange={(e) => {
+                    setExportGroupSearch(e.target.value)
+                    setExportGroupId('all')
+                  }}
+                  className="pl-8 h-9 text-sm"
+                />
+              </div>
+              <div className="border rounded-md max-h-48 overflow-y-auto">
+                <button
+                  type="button"
+                  className={`w-full text-left px-3 py-2 text-sm hover:bg-accent transition-colors flex items-center gap-2 ${
+                    exportGroupId === 'all' ? 'bg-accent font-medium' : ''
+                  }`}
+                  onClick={() => setExportGroupId('all')}
+                >
+                  📁 All Leads
+                  <span className="text-xs text-muted-foreground ml-auto">({leads.length})</span>
+                </button>
+                <button
+                  type="button"
+                  className={`w-full text-left px-3 py-2 text-sm hover:bg-accent transition-colors flex items-center gap-2 ${
+                    exportGroupId === 'null' ? 'bg-accent font-medium' : ''
+                  }`}
+                  onClick={() => setExportGroupId('null')}
+                >
+                  📂 Ungrouped
+                </button>
+                {groups
+                  .filter(g => !exportGroupSearch || g.name.toLowerCase().includes(exportGroupSearch.toLowerCase()))
+                  .map((g) => (
+                    <button
+                      key={g.id}
+                      type="button"
+                      className={`w-full text-left px-3 py-2 text-sm hover:bg-accent transition-colors flex items-center gap-2 ${
+                        exportGroupId === g.id.toString() ? 'bg-accent font-medium' : ''
+                      }`}
+                      onClick={() => setExportGroupId(g.id.toString())}
+                    >
+                      📁 {g.name}
+                      <span className="text-xs text-muted-foreground ml-auto">({g.lead_count})</span>
+                    </button>
                   ))}
-                </SelectContent>
-              </Select>
+                {exportGroupSearch && groups.filter(g => g.name.toLowerCase().includes(exportGroupSearch.toLowerCase())).length === 0 && (
+                  <p className="px-3 py-4 text-xs text-muted-foreground text-center">No groups match "{exportGroupSearch}"</p>
+                )}
+              </div>
             </div>
             <div className="text-sm text-muted-foreground">
               {exportGroupId === 'all' 
@@ -712,6 +753,7 @@ export function Dashboard() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
 
       {/* Group Management Dialog */}
       <Dialog open={isGroupDialogOpen} onOpenChange={setIsGroupDialogOpen}>
