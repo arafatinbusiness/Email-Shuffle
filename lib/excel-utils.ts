@@ -18,7 +18,9 @@ export function exportToCSV(leads: Lead[]): string {
     'FB Ads Notes',
     'Pixel Status',
     'Custom Notes',
+    'Quick Question',
     'Last Email Sent',
+
     'Next Follow Up',
     'Created At',
     'Positive Point 1',
@@ -68,7 +70,9 @@ export function exportToCSV(leads: Lead[]): string {
       lead.fb_ads_notes || '',
       lead.pixel_status || '',
       lead.custom_notes || '',
+      lead.quick_question || '',
       lead.last_email_sent || '',
+
       lead.next_follow_up || '',
       lead.created_at,
       ...positiveParts,
@@ -178,7 +182,13 @@ export function parseCSV(content: string): Partial<Lead>[] {
         case 'notes':
           lead.custom_notes = value || null
           break
+        case 'quick_question':
+        case 'quickquestion':
+        case 'question':
+          lead.quick_question = value || null
+          break
         case 'next_follow_up':
+
         case 'next_followup':
         case 'follow_up':
           lead.next_follow_up = value || null
@@ -328,7 +338,13 @@ export function parseXLSX(data: ArrayBuffer): Partial<Lead>[] {
         case 'notes':
           lead.custom_notes = strValue || null
           break
+        case 'quick_question':
+        case 'quickquestion':
+        case 'question':
+          lead.quick_question = strValue || null
+          break
         case 'next_follow_up':
+
         case 'next_followup':
         case 'follow_up':
           lead.next_follow_up = strValue || null

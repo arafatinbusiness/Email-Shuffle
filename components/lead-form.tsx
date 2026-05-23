@@ -65,7 +65,9 @@ export function LeadForm({ open, onOpenChange, lead, onSubmit }: LeadFormProps) 
 
       pixel_status: lead?.pixel_status || '',
       custom_notes: lead?.custom_notes || '',
+      quick_question: lead?.quick_question || '',
       next_follow_up: lead?.next_follow_up?.split('T')[0] || '',
+
     }
   }
 
@@ -113,17 +115,6 @@ export function LeadForm({ open, onOpenChange, lead, onSubmit }: LeadFormProps) 
                 onChange={(e) => updateField('last_name', e.target.value)}
               />
             </div>
-          </div>
-          
-          <div className="space-y-2">
-            <Label htmlFor="email">Email *</Label>
-            <Input
-              id="email"
-              type="email"
-              value={formData.email}
-              onChange={(e) => updateField('email', e.target.value)}
-              required
-            />
           </div>
 
           <div className="space-y-2">
@@ -330,7 +321,19 @@ export function LeadForm({ open, onOpenChange, lead, onSubmit }: LeadFormProps) 
             />
           </div>
 
+          <div className="space-y-2">
+            <Label htmlFor="quick_question">Quick Question</Label>
+            <Textarea
+              id="quick_question"
+              placeholder="A quick question to ask the lead..."
+              value={formData.quick_question || ''}
+              onChange={(e) => updateField('quick_question', e.target.value)}
+              rows={2}
+            />
+          </div>
+
           <div className="flex gap-3 pt-4">
+
             <Button type="button" variant="outline" className="flex-1" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>

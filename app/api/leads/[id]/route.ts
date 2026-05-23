@@ -92,9 +92,11 @@ export async function PUT(
 
       pixel_status,
       custom_notes,
+      quick_question,
       last_email_sent,
       next_follow_up
     } = body
+
 
     try {
       const result = await sql`
@@ -117,6 +119,7 @@ export async function PUT(
 
           pixel_status = ${pixel_status || null},
           custom_notes = ${custom_notes || null},
+          quick_question = ${quick_question || null},
           last_email_sent = ${last_email_sent || null},
           next_follow_up = ${next_follow_up || null}
         WHERE id = ${parseInt(id)} AND user_id = ${userId}
@@ -129,40 +132,113 @@ export async function PUT(
 
       return NextResponse.json(result[0])
     } catch (error: any) {
-      // If the error is about missing image_link column, retry without it
-      if (error?.code === '42703' && String(error?.message || '').includes('image_link')) {
-        console.warn('image_link column not found in DB, retrying PUT without it')
-        const result = await sql`
-          UPDATE leads SET
-            first_name = ${first_name},
-            last_name = ${last_name || null},
-            email = ${email},
-            company_name = ${company_name || null},
-            website = ${website || null},
-            status = ${status},
-            current_layer = ${current_layer},
-            lead_type = ${lead_type || 'lead'},
-            priority = ${priority || null},
-            intent = ${intent || null},
-            positive_points = ${positive_points || null},
-            improvements = ${improvements || null},
-            video_link = ${video_link || null},
-            fb_ads_notes = ${fb_ads_notes || null},
+      // If the error is about a missing column, retry without it
+      if (error?.code === '42703') {
+        const errorMsg = String(error?.message || '')
+        // Try without quick_question first
+        if (errorMsg.includes('quick_question')) {
+          console.warn('quick_question column not found in DB, retrying PUT without it')
+          try {
+            const result = await sql`
+              UPDATE leads SET
+                first_name = ${first_name},
+                last_name = ${last_name || null},
+                email = ${email},
+                company_name = ${company_name || null},
+                website = ${website || null},
+                status = ${status},
+                current_layer = ${current_layer},
+                lead_type = ${lead_type || 'lead'},
+                priority = ${priority || null},
+                intent = ${intent || null},
+                positive_points = ${positive_points || null},
+                improvements = ${improvements || null},
+                video_link = ${video_link || null},
+                image_link = ${image_link || null},
+                fb_ads_notes = ${fb_ads_notes || null},
 
-            pixel_status = ${pixel_status || null},
-            custom_notes = ${custom_notes || null},
-            last_email_sent = ${last_email_sent || null},
-            next_follow_up = ${next_follow_up || null}
-          WHERE id = ${parseInt(id)} AND user_id = ${userId}
-          RETURNING *
-        `
-        if (result.length === 0) {
-          return NextResponse.json({ error: 'Lead not found' }, { status: 404 })
+                pixel_status = ${pixel_status || null},
+                custom_notes = ${custom_notes || null},
+                last_email_sent = ${last_email_sent || null},
+                next_follow_up = ${next_follow_up || null}
+              WHERE id = ${parseInt(id)} AND user_id = ${userId}
+              RETURNING *
+            `
+            if (result.length === 0) {
+              return NextResponse.json({ error: 'Lead not found' }, { status: 404 })
+            }
+            return NextResponse.json(result[0])
+          } catch (innerError: any) {
+            if (innerError?.code === '42703' && String(innerError?.message || '').includes('image_link')) {
+              console.warn('image_link column also not found, retrying PUT without both')
+              const result = await sql`
+                UPDATE leads SET
+                  first_name = ${first_name},
+                  last_name = ${last_name || null},
+                  email = ${email},
+                  company_name = ${company_name || null},
+                  website = ${website || null},
+                  status = ${status},
+                  current_layer = ${current_layer},
+                  lead_type = ${lead_type || 'lead'},
+                  priority = ${priority || null},
+                  intent = ${intent || null},
+                  positive_points = ${positive_points || null},
+                  improvements = ${improvements || null},
+                  video_link = ${video_link || null},
+                  fb_ads_notes = ${fb_ads_notes || null},
+
+                  pixel_status = ${pixel_status || null},
+                  custom_notes = ${custom_notes || null},
+                  last_email_sent = ${last_email_sent || null},
+                  next_follow_up = ${next_follow_up || null}
+                WHERE id = ${parseInt(id)} AND user_id = ${userId}
+                RETURNING *
+              `
+              if (result.length === 0) {
+                return NextResponse.json({ error: 'Lead not found' }, { status: 404 })
+              }
+              return NextResponse.json(result[0])
+            }
+            throw innerError
+          }
         }
-        return NextResponse.json(result[0])
+        // Try without image_link
+        if (errorMsg.includes('image_link')) {
+          console.warn('image_link column not found in DB, retrying PUT without it')
+          const result = await sql`
+            UPDATE leads SET
+              first_name = ${first_name},
+              last_name = ${last_name || null},
+              email = ${email},
+              company_name = ${company_name || null},
+              website = ${website || null},
+              status = ${status},
+              current_layer = ${current_layer},
+              lead_type = ${lead_type || 'lead'},
+              priority = ${priority || null},
+              intent = ${intent || null},
+              positive_points = ${positive_points || null},
+              improvements = ${improvements || null},
+              video_link = ${video_link || null},
+              fb_ads_notes = ${fb_ads_notes || null},
+
+              pixel_status = ${pixel_status || null},
+              custom_notes = ${custom_notes || null},
+              last_email_sent = ${last_email_sent || null},
+              next_follow_up = ${next_follow_up || null}
+            WHERE id = ${parseInt(id)} AND user_id = ${userId}
+            RETURNING *
+          `
+          if (result.length === 0) {
+            return NextResponse.json({ error: 'Lead not found' }, { status: 404 })
+          }
+          return NextResponse.json(result[0])
+        }
       }
       throw error
     }
+
   } catch (error) {
     console.error('Failed to update lead:', error)
     return NextResponse.json({ error: 'Failed to update lead' }, { status: 500 })

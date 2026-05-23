@@ -78,6 +78,12 @@ async function runMigrations() {
   await sql`
     ALTER TABLE leads ADD COLUMN IF NOT EXISTS image_link TEXT
   `
+
+  // Add quick_question column to leads
+  await sql`
+    ALTER TABLE leads ADD COLUMN IF NOT EXISTS quick_question TEXT
+  `
+
 }
 
 export async function GET() {

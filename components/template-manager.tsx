@@ -277,10 +277,12 @@ export function TemplateManager() {
                             { label: 'Current Website Updates', token: '{{current_website_updates}}' },
                             { label: 'FB Ads Notes', token: '{{fb_ads_notes}}' },
                             { label: 'Pixel Status', token: '{{pixel_status}}' },
-                            { label: 'Custom Notes', token: '{{custom_notes}}' },
-                            { label: 'Video Link', token: '{{video_link}}' },
-                            { label: 'Image Link', token: '{{image_link}}' },
-                          ].map((t, i) => (
+              { label: 'Custom Notes', token: '{{custom_notes}}' },
+              { label: 'Quick Question', token: '{{quick_question}}' },
+              { label: 'Video Link', token: '{{video_link}}' },
+              { label: 'Image Link', token: '{{image_link}}' },
+            ].map((t, i) => (
+
                             <button
                               key={i}
                               type="button"

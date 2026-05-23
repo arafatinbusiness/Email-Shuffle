@@ -280,7 +280,8 @@ export function Dashboard() {
       'first_name', 'last_name', 'email', 'company_name', 'website',
       'status', 'current_layer', 'lead_type', 'priority', 'intent',
       'positive_points', 'improvements', 'current_website_updates',
-      'fb_ads_notes', 'pixel_status', 'custom_notes', 'next_follow_up',
+      'fb_ads_notes', 'pixel_status', 'custom_notes', 'quick_question',
+      'video_link', 'image_link', 'next_follow_up',
       'group_id', 'import_batch_id', 'upsert',
     ])
     const customColumns = new Set<string>()

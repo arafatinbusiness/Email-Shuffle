@@ -46,7 +46,9 @@ CREATE TABLE IF NOT EXISTS leads (
 
   pixel_status VARCHAR(100),
   custom_notes TEXT,
+  quick_question TEXT,
   last_email_sent TIMESTAMP,
+
   next_follow_up DATE,
   created_at TIMESTAMP DEFAULT NOW(),
   updated_at TIMESTAMP DEFAULT NOW(),

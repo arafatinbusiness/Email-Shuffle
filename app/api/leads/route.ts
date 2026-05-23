@@ -179,14 +179,67 @@ export async function POST(request: Request) {
       fb_ads_notes,
       pixel_status,
       custom_notes,
+      quick_question,
       next_follow_up,
       upsert = false,
     } = body
 
 
 
-    // Try with current_website_updates first, fall back to without if column doesn't exist
-    const insertWithUpdates = async () => {
+
+    // Try with all columns first, fall back to without if column doesn't exist
+    const insertWithAll = async () => {
+      if (upsert) {
+        return await sql`
+          INSERT INTO leads (
+            user_id, first_name, last_name, email, company_name, website, group_id,
+            status, current_layer, lead_type, priority, intent, positive_points, improvements,
+            video_link, image_link, current_website_updates, fb_ads_notes, pixel_status, custom_notes, quick_question, next_follow_up
+          ) VALUES (
+            ${userId}, ${first_name}, ${last_name || null}, ${email}, ${company_name || null}, ${website || null}, ${group_id ? parseInt(group_id) : null},
+            ${status}, ${current_layer}, ${lead_type}, ${priority || null}, ${intent || null}, ${positive_points || null}, ${improvements || null},
+            ${video_link || null}, ${image_link || null}, ${current_website_updates || null}, ${fb_ads_notes || null}, ${pixel_status || null}, ${custom_notes || null}, ${quick_question || null}, ${next_follow_up || null}
+          )
+          ON CONFLICT (user_id, email) DO UPDATE SET
+            first_name = EXCLUDED.first_name,
+            last_name = EXCLUDED.last_name,
+            company_name = EXCLUDED.company_name,
+            website = EXCLUDED.website,
+            group_id = EXCLUDED.group_id,
+            status = EXCLUDED.status,
+            current_layer = EXCLUDED.current_layer,
+            lead_type = EXCLUDED.lead_type,
+            priority = EXCLUDED.priority,
+            intent = EXCLUDED.intent,
+            positive_points = EXCLUDED.positive_points,
+            improvements = EXCLUDED.improvements,
+            video_link = EXCLUDED.video_link,
+            image_link = EXCLUDED.image_link,
+            current_website_updates = EXCLUDED.current_website_updates,
+            fb_ads_notes = EXCLUDED.fb_ads_notes,
+            pixel_status = EXCLUDED.pixel_status,
+            custom_notes = EXCLUDED.custom_notes,
+            quick_question = EXCLUDED.quick_question,
+            next_follow_up = EXCLUDED.next_follow_up,
+            updated_at = NOW()
+          RETURNING *
+        `
+      }
+      return await sql`
+        INSERT INTO leads (
+          user_id, first_name, last_name, email, company_name, website, group_id,
+          status, current_layer, lead_type, priority, intent, positive_points, improvements,
+          video_link, image_link, current_website_updates, fb_ads_notes, pixel_status, custom_notes, quick_question, next_follow_up
+        ) VALUES (
+          ${userId}, ${first_name}, ${last_name || null}, ${email}, ${company_name || null}, ${website || null}, ${group_id ? parseInt(group_id) : null},
+          ${status}, ${current_layer}, ${lead_type}, ${priority || null}, ${intent || null}, ${positive_points || null}, ${improvements || null},
+          ${video_link || null}, ${image_link || null}, ${current_website_updates || null}, ${fb_ads_notes || null}, ${pixel_status || null}, ${custom_notes || null}, ${quick_question || null}, ${next_follow_up || null}
+        )
+        RETURNING *
+      `
+    }
+
+    const insertWithoutQuickQuestion = async () => {
       if (upsert) {
         return await sql`
           INSERT INTO leads (
@@ -336,12 +389,15 @@ export async function POST(request: Request) {
 
 
 
+
     // Try insert strategies in order of completeness, falling back if any column is missing
     const strategies = [
-      { name: 'with all columns', fn: insertWithUpdates },
+      { name: 'with all columns', fn: insertWithAll },
+      { name: 'without quick_question', fn: insertWithoutQuickQuestion },
       { name: 'without current_website_updates', fn: insertWithoutUpdates },
       { name: 'without media links', fn: insertWithoutMediaLinks },
     ]
+
 
     let lastError: any = null
     for (const strategy of strategies) {

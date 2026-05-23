@@ -27,7 +27,9 @@ export interface Lead {
 
   pixel_status: string | null
   custom_notes: string | null
+  quick_question: string | null
   current_website_updates: string | null
+
   last_email_sent: string | null
   next_follow_up: string | null
   created_at: string

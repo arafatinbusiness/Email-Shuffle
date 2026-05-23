@@ -421,7 +421,8 @@ export function LeadDetail({ lead, open, onOpenChange, onEdit, onUpdate, initial
               </CardContent>
             </Card>
 
-            {(lead.positive_points || lead.improvements || lead.custom_notes) && (
+            {(lead.positive_points || lead.improvements || lead.custom_notes || lead.quick_question) && (
+
               <Card>
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm flex items-center gap-2">
@@ -448,7 +449,14 @@ export function LeadDetail({ lead, open, onOpenChange, onEdit, onUpdate, initial
                       <p className="text-sm">{lead.custom_notes}</p>
                     </div>
                   )}
+                  {lead.quick_question && (
+                    <div>
+                      <p className="text-xs font-medium text-muted-foreground mb-1">Quick Question</p>
+                      <p className="text-sm">{lead.quick_question}</p>
+                    </div>
+                  )}
                 </CardContent>
+
               </Card>
             )}
           </TabsContent>

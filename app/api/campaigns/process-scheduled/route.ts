@@ -43,7 +43,7 @@ export async function POST() {
         const recipients = await sql`
           SELECT cr.*, l.first_name, l.last_name, l.company_name, l.website,
                  l.positive_points, l.improvements, l.video_link, l.image_link,
-                 l.fb_ads_notes, l.pixel_status, l.custom_notes
+                 l.fb_ads_notes, l.pixel_status, l.custom_notes, l.quick_question
           FROM campaign_recipients cr
           JOIN leads l ON l.id = cr.lead_id
           WHERE cr.campaign_id = ${campaign.id} AND cr.status = 'pending'
@@ -235,7 +235,9 @@ function personalizeText(text: string, recipient: any): string {
     fb_ads_notes: recipient.fb_ads_notes,
     pixel_status: recipient.pixel_status,
     custom_notes: recipient.custom_notes,
+    quick_question: recipient.quick_question,
   }
+
 
   for (const [field, value] of Object.entries(customFields)) {
     const regex = new RegExp(`{{${field}}}`, 'gi')

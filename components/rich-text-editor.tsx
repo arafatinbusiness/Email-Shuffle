@@ -35,7 +35,9 @@ import {
   Megaphone,
   Activity,
   FileText,
+  HelpCircle,
 } from 'lucide-react'
+
 
 import { useState, useEffect, useCallback } from 'react'
 
@@ -61,8 +63,10 @@ const DEFAULT_TOKENS = [
   { label: 'FB Ads Notes', token: '{{fb_ads_notes}}', icon: 'Megaphone' },
   { label: 'Pixel Status', token: '{{pixel_status}}', icon: 'Activity' },
   { label: 'Custom Notes', token: '{{custom_notes}}', icon: 'FileText' },
+  { label: 'Quick Question', token: '{{quick_question}}', icon: 'HelpCircle' },
   { label: 'Video Link', token: '{{video_link}}', icon: 'Video' },
   { label: 'Image Link', token: '{{image_link}}', icon: 'Image' },
+
   { label: 'Positive Point 1', token: '{{positive_point_1}}', icon: 'ThumbsUp' },
   { label: 'Positive Point 2', token: '{{positive_point_2}}', icon: 'ThumbsUp' },
   { label: 'Positive Point 3', token: '{{positive_point_3}}', icon: 'ThumbsUp' },
@@ -235,7 +239,9 @@ export function RichTextEditor({
       case 'FileText': return <FileText className={className} />
       case 'Video': return <Video className={className} />
       case 'Image': return <Image className={className} />
+      case 'HelpCircle': return <HelpCircle className={className} />
       default: return <Variable className={className} />
+
     }
   }
 
