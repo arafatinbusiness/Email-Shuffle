@@ -124,6 +124,7 @@ export function RichTextEditor({
 
   const editor = useEditor({
     immediatelyRender: false,
+    autofocus: false,
     extensions: [
       StarterKit.configure({
         heading: {
