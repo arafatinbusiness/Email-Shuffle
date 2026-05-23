@@ -82,7 +82,19 @@ export async function POST() {
       ALTER TABLE email_campaigns ADD COLUMN IF NOT EXISTS layer VARCHAR(10) DEFAULT 'campaign'
     `
 
+    // Add video_link column to leads for screen recording URLs
+    await sql`
+      ALTER TABLE leads ADD COLUMN IF NOT EXISTS video_link TEXT
+    `
+
+    // Add image_link column to leads for screenshot URLs
+    await sql`
+      ALTER TABLE leads ADD COLUMN IF NOT EXISTS image_link TEXT
+    `
+
     return NextResponse.json({ success: true, message: 'Migration completed successfully' })
+
+
 
 
 

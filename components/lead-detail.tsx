@@ -361,14 +361,44 @@ export function LeadDetail({ lead, open, onOpenChange, onEdit, onUpdate, initial
                     </a>
                   </div>
                 )}
+                {lead.video_link && (
+                  <div className="flex items-center gap-2 text-sm">
+                    <span className="text-muted-foreground w-20">Video:</span>
+                    <a
+                      href={lead.video_link}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-primary hover:underline flex items-center gap-1"
+                    >
+                      Watch Recording
+                      <ExternalLink className="h-3 w-3" />
+                    </a>
+                  </div>
+                )}
+                {lead.image_link && (
+                  <div className="flex items-center gap-2 text-sm">
+                    <span className="text-muted-foreground w-20">Image:</span>
+                    <a
+                      href={lead.image_link}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-primary hover:underline flex items-center gap-1"
+                    >
+                      View Screenshot
+                      <ExternalLink className="h-3 w-3" />
+                    </a>
+                  </div>
+                )}
               </CardContent>
             </Card>
 
             <Card>
+
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm flex items-center gap-2">
                   <Calendar className="h-4 w-4" />
                   Timeline
+
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3 text-sm">

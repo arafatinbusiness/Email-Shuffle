@@ -97,13 +97,17 @@ export async function POST(request: Request) {
       intent,
       positive_points,
       improvements,
+      video_link,
+      image_link,
       current_website_updates,
+
       fb_ads_notes,
       pixel_status,
       custom_notes,
       next_follow_up,
       upsert = false,
     } = body
+
 
 
     // Try with current_website_updates first, fall back to without if column doesn't exist
@@ -113,11 +117,11 @@ export async function POST(request: Request) {
           INSERT INTO leads (
             user_id, first_name, last_name, email, company_name, website, group_id,
             status, current_layer, lead_type, priority, intent, positive_points, improvements,
-            current_website_updates, fb_ads_notes, pixel_status, custom_notes, next_follow_up
+            video_link, image_link, current_website_updates, fb_ads_notes, pixel_status, custom_notes, next_follow_up
           ) VALUES (
             ${userId}, ${first_name}, ${last_name || null}, ${email}, ${company_name || null}, ${website || null}, ${group_id ? parseInt(group_id) : null},
             ${status}, ${current_layer}, ${lead_type}, ${priority || null}, ${intent || null}, ${positive_points || null}, ${improvements || null},
-            ${current_website_updates || null}, ${fb_ads_notes || null}, ${pixel_status || null}, ${custom_notes || null}, ${next_follow_up || null}
+            ${video_link || null}, ${image_link || null}, ${current_website_updates || null}, ${fb_ads_notes || null}, ${pixel_status || null}, ${custom_notes || null}, ${next_follow_up || null}
           )
           ON CONFLICT (user_id, email) DO UPDATE SET
             first_name = EXCLUDED.first_name,
@@ -132,6 +136,8 @@ export async function POST(request: Request) {
             intent = EXCLUDED.intent,
             positive_points = EXCLUDED.positive_points,
             improvements = EXCLUDED.improvements,
+            video_link = EXCLUDED.video_link,
+            image_link = EXCLUDED.image_link,
             current_website_updates = EXCLUDED.current_website_updates,
             fb_ads_notes = EXCLUDED.fb_ads_notes,
             pixel_status = EXCLUDED.pixel_status,
@@ -145,11 +151,11 @@ export async function POST(request: Request) {
         INSERT INTO leads (
           user_id, first_name, last_name, email, company_name, website, group_id,
           status, current_layer, lead_type, priority, intent, positive_points, improvements,
-          current_website_updates, fb_ads_notes, pixel_status, custom_notes, next_follow_up
+          video_link, image_link, current_website_updates, fb_ads_notes, pixel_status, custom_notes, next_follow_up
         ) VALUES (
           ${userId}, ${first_name}, ${last_name || null}, ${email}, ${company_name || null}, ${website || null}, ${group_id ? parseInt(group_id) : null},
           ${status}, ${current_layer}, ${lead_type}, ${priority || null}, ${intent || null}, ${positive_points || null}, ${improvements || null},
-          ${current_website_updates || null}, ${fb_ads_notes || null}, ${pixel_status || null}, ${custom_notes || null}, ${next_follow_up || null}
+          ${video_link || null}, ${image_link || null}, ${current_website_updates || null}, ${fb_ads_notes || null}, ${pixel_status || null}, ${custom_notes || null}, ${next_follow_up || null}
         )
         RETURNING *
       `
@@ -161,11 +167,11 @@ export async function POST(request: Request) {
           INSERT INTO leads (
             user_id, first_name, last_name, email, company_name, website, group_id,
             status, current_layer, lead_type, priority, intent, positive_points, improvements,
-            fb_ads_notes, pixel_status, custom_notes, next_follow_up
+            video_link, image_link, fb_ads_notes, pixel_status, custom_notes, next_follow_up
           ) VALUES (
             ${userId}, ${first_name}, ${last_name || null}, ${email}, ${company_name || null}, ${website || null}, ${group_id ? parseInt(group_id) : null},
             ${status}, ${current_layer}, ${lead_type}, ${priority || null}, ${intent || null}, ${positive_points || null}, ${improvements || null},
-            ${fb_ads_notes || null}, ${pixel_status || null}, ${custom_notes || null}, ${next_follow_up || null}
+            ${video_link || null}, ${image_link || null}, ${fb_ads_notes || null}, ${pixel_status || null}, ${custom_notes || null}, ${next_follow_up || null}
           )
           ON CONFLICT (user_id, email) DO UPDATE SET
             first_name = EXCLUDED.first_name,
@@ -180,6 +186,8 @@ export async function POST(request: Request) {
             intent = EXCLUDED.intent,
             positive_points = EXCLUDED.positive_points,
             improvements = EXCLUDED.improvements,
+            video_link = EXCLUDED.video_link,
+            image_link = EXCLUDED.image_link,
             fb_ads_notes = EXCLUDED.fb_ads_notes,
             pixel_status = EXCLUDED.pixel_status,
             custom_notes = EXCLUDED.custom_notes,
@@ -192,15 +200,17 @@ export async function POST(request: Request) {
         INSERT INTO leads (
           user_id, first_name, last_name, email, company_name, website, group_id,
           status, current_layer, lead_type, priority, intent, positive_points, improvements,
-          fb_ads_notes, pixel_status, custom_notes, next_follow_up
+          video_link, image_link, fb_ads_notes, pixel_status, custom_notes, next_follow_up
         ) VALUES (
           ${userId}, ${first_name}, ${last_name || null}, ${email}, ${company_name || null}, ${website || null}, ${group_id ? parseInt(group_id) : null},
           ${status}, ${current_layer}, ${lead_type}, ${priority || null}, ${intent || null}, ${positive_points || null}, ${improvements || null},
-          ${fb_ads_notes || null}, ${pixel_status || null}, ${custom_notes || null}, ${next_follow_up || null}
+          ${video_link || null}, ${image_link || null}, ${fb_ads_notes || null}, ${pixel_status || null}, ${custom_notes || null}, ${next_follow_up || null}
         )
         RETURNING *
       `
     }
+
+
 
 
     try {

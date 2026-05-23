@@ -58,7 +58,10 @@ export async function PUT(
       intent,
       positive_points,
       improvements,
+      video_link,
+      image_link,
       fb_ads_notes,
+
       pixel_status,
       custom_notes,
       last_email_sent,
@@ -79,7 +82,10 @@ export async function PUT(
         intent = ${intent || null},
         positive_points = ${positive_points || null},
         improvements = ${improvements || null},
+        video_link = ${video_link || null},
+        image_link = ${image_link || null},
         fb_ads_notes = ${fb_ads_notes || null},
+
         pixel_status = ${pixel_status || null},
         custom_notes = ${custom_notes || null},
         last_email_sent = ${last_email_sent || null},

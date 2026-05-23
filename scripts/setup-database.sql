@@ -39,7 +39,11 @@ CREATE TABLE IF NOT EXISTS leads (
   lead_type VARCHAR(10) DEFAULT 'lead' CHECK (lead_type IN ('lead', 'customer')),
   positive_points TEXT,
   improvements TEXT,
+  video_link TEXT,
+  image_link TEXT,
   fb_ads_notes TEXT,
+
+
   pixel_status VARCHAR(100),
   custom_notes TEXT,
   last_email_sent TIMESTAMP,

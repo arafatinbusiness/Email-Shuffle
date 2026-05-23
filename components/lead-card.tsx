@@ -5,7 +5,8 @@ import { Lead, LAYER_DESCRIPTIONS, STATUS_CONFIG, PRIORITY_CONFIG, INTENT_LABELS
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Mail, Calendar, Building2, Globe, MoreHorizontal, Flag, Target, FileText, Loader2 } from 'lucide-react'
+import { Mail, Calendar, Building2, Globe, MoreHorizontal, Flag, Target, FileText, Loader2, Video, Image } from 'lucide-react'
+
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -118,8 +119,16 @@ export function LeadCard({ lead, onSelect, onDelete, onUseTemplate }: LeadCardPr
                 </div>
               )}
             </div>
-            <div className="flex items-center gap-2 flex-wrap">
+            <div className="flex items-center gap-1.5 flex-wrap">
+              {lead.video_link && (
+                <Video className="h-3 w-3 text-blue-400" />
+              )}
+              {lead.image_link && (
+                <Image className="h-3 w-3 text-green-400" />
+              )}
+
               <Badge className={`${statusConfig.bgColor} ${statusConfig.color} border-0`}>
+
                 {statusConfig.label}
               </Badge>
               <Badge variant="outline" className="border-primary/30 text-primary">

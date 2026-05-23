@@ -20,7 +20,11 @@ export interface Lead {
   lead_type: LeadType
   positive_points: string | null
   improvements: string | null
+  video_link: string | null
+  image_link: string | null
   fb_ads_notes: string | null
+
+
   pixel_status: string | null
   custom_notes: string | null
   current_website_updates: string | null

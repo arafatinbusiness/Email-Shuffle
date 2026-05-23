@@ -45,13 +45,14 @@ export async function POST(request: Request) {
     // Get pending recipients with all lead fields for personalization
     const recipients = await sql`
       SELECT cr.*, l.first_name, l.last_name, l.company_name, l.website,
-             l.positive_points, l.improvements, l.fb_ads_notes, l.pixel_status,
+             l.positive_points, l.improvements, l.video_link, l.fb_ads_notes, l.pixel_status,
              l.custom_notes
       FROM campaign_recipients cr
       JOIN leads l ON l.id = cr.lead_id
       WHERE cr.campaign_id = ${campaign_id} AND cr.status = 'pending'
       ORDER BY cr.id
     `
+
 
 
 
@@ -202,22 +203,62 @@ function personalizeText(text: string, recipient: any): string {
     website: recipient.website,
     positive_points: recipient.positive_points,
     improvements: recipient.improvements,
+    video_link: recipient.video_link,
+    image_link: recipient.image_link,
     fb_ads_notes: recipient.fb_ads_notes,
     pixel_status: recipient.pixel_status,
     custom_notes: recipient.custom_notes,
   }
-
 
   for (const [field, value] of Object.entries(customFields)) {
     const regex = new RegExp(`{{${field}}}`, 'gi')
     result = result.replace(regex, value || '')
   }
 
+  // Replace individual positive_point_1 through positive_point_10 tokens
+  const positiveParts = splitIntoParts(recipient.positive_points || '', 10)
+  for (let i = 0; i < 10; i++) {
+    const regex = new RegExp(`{{positive_point_${i + 1}}}`, 'gi')
+    result = result.replace(regex, positiveParts[i] || '')
+  }
+
+  // Replace individual improvements_1 through improvements_10 tokens
+  const improvementParts = splitIntoParts(recipient.improvements || '', 10)
+  for (let i = 0; i < 10; i++) {
+    const regex = new RegExp(`{{improvements_${i + 1}}}`, 'gi')
+    result = result.replace(regex, improvementParts[i] || '')
+  }
+
   return result
+}
+
+
+// Split a string into N parts by newlines
+function splitIntoParts(text: string, count: number): string[] {
+  const parts: string[] = []
+  const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0)
+  
+  if (lines.length >= count) {
+    for (let i = 0; i < count; i++) {
+      parts.push(lines[i] || '')
+    }
+  } else if (lines.length > 1) {
+    for (let i = 0; i < count; i++) {
+      parts.push(lines[i] || '')
+    }
+  } else {
+    parts.push(text)
+    for (let i = 1; i < count; i++) {
+      parts.push('')
+    }
+  }
+  
+  return parts
 }
 
 // Append signature to email body
 function appendSignature(body: string, campaignSignature: string | null, mailboxSignature: string | null): string {
+
   // Campaign signature takes priority over mailbox signature
   const sig = campaignSignature || mailboxSignature
   if (!sig) return body
@@ -358,13 +399,14 @@ async function processScheduledCampaign(campaignId: number, userId: number) {
     // Get pending recipients with all lead fields for personalization
     const recipients = await retrySql(() => sql`
       SELECT cr.*, l.first_name, l.last_name, l.company_name, l.website,
-             l.positive_points, l.improvements, l.fb_ads_notes, l.pixel_status,
+             l.positive_points, l.improvements, l.video_link, l.fb_ads_notes, l.pixel_status,
              l.custom_notes
       FROM campaign_recipients cr
       JOIN leads l ON l.id = cr.lead_id
       WHERE cr.campaign_id = ${campaignId} AND cr.status = 'pending'
       ORDER BY cr.id
     `)
+
 
 
 

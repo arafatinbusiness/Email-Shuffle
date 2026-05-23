@@ -58,7 +58,11 @@ export function LeadForm({ open, onOpenChange, lead, onSubmit }: LeadFormProps) 
       current_layer: lead?.current_layer || 'L1',
       positive_points: lead?.positive_points || '',
       improvements: lead?.improvements || '',
+      video_link: lead?.video_link || '',
+      image_link: lead?.image_link || '',
       fb_ads_notes: lead?.fb_ads_notes || '',
+
+
       pixel_status: lead?.pixel_status || '',
       custom_notes: lead?.custom_notes || '',
       next_follow_up: lead?.next_follow_up?.split('T')[0] || '',
@@ -143,7 +147,31 @@ export function LeadForm({ open, onOpenChange, lead, onSubmit }: LeadFormProps) 
           </div>
 
           <div className="space-y-2">
+            <Label htmlFor="video_link">Video Link (Screen Recording)</Label>
+            <Input
+              id="video_link"
+              type="url"
+              placeholder="https://www.loom.com/share/..."
+              value={formData.video_link || ''}
+              onChange={(e) => updateField('video_link', e.target.value)}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="image_link">Image Link (Screenshot)</Label>
+            <Input
+              id="image_link"
+              type="url"
+              placeholder="https://example.com/screenshot.png"
+              value={formData.image_link || ''}
+              onChange={(e) => updateField('image_link', e.target.value)}
+            />
+          </div>
+
+          <div className="space-y-2">
             <Label htmlFor="group_id" className="flex items-center gap-1">
+
+
               <FolderOpen className="h-3.5 w-3.5" />
               Group / Folder
             </Label>

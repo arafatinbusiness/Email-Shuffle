@@ -41,7 +41,11 @@ export function exportToCSV(leads: Lead[]): string {
     'Improvements 8',
     'Improvements 9',
     'Improvements 10',
+    'Video Link',
+    'Image Link',
   ]
+
+
 
   const rows = leads.map(lead => {
     // Split positive_points into up to 10 parts
@@ -69,8 +73,12 @@ export function exportToCSV(leads: Lead[]): string {
       lead.created_at,
       ...positiveParts,
       ...improvementParts,
+      lead.video_link || '',
+      lead.image_link || '',
     ]
   })
+
+
 
 
   const escapeCSV = (value: string) => {
@@ -175,7 +183,17 @@ export function parseCSV(content: string): Partial<Lead>[] {
         case 'follow_up':
           lead.next_follow_up = value || null
           break
+        case 'video_link':
+        case 'video':
+          lead.video_link = value || null
+          break
+        case 'image_link':
+        case 'image':
+          lead.image_link = value || null
+          break
         default: {
+
+
           // Handle numbered columns like "positive_point_1", "improvements_3", etc.
           const positiveMatch = header.match(/^positive_?points?_?(\d+)$/)
           if (positiveMatch) {
@@ -315,8 +333,18 @@ export function parseXLSX(data: ArrayBuffer): Partial<Lead>[] {
         case 'follow_up':
           lead.next_follow_up = strValue || null
           break
+        case 'video_link':
+        case 'video':
+          lead.video_link = strValue || null
+          break
+        case 'image_link':
+        case 'image':
+          lead.image_link = strValue || null
+          break
         default: {
+
           // Handle numbered columns like "positive_point_1", "improvements_3", etc.
+
           const positiveMatch = header.match(/^positive_?points?_?(\d+)$/)
           if (positiveMatch) {
             const num = parseInt(positiveMatch[1])
