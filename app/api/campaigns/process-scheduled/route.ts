@@ -1,4 +1,4 @@
-mport { NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
 import { getDb } from '@/lib/db'
 import { getMailboxConfig, sendEmail, saveEmailToDb } from '@/lib/mailbox-service'
 
