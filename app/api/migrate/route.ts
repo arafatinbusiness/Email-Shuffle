@@ -77,7 +77,13 @@ export async function POST() {
       ALTER TABLE leads ADD COLUMN IF NOT EXISTS current_website_updates TEXT
     `
 
+    // Add layer column to email_campaigns for tagging campaigns with outreach layer (L1, L2, etc.)
+    await sql`
+      ALTER TABLE email_campaigns ADD COLUMN IF NOT EXISTS layer VARCHAR(10) DEFAULT 'campaign'
+    `
+
     return NextResponse.json({ success: true, message: 'Migration completed successfully' })
+
 
 
   } catch (error) {

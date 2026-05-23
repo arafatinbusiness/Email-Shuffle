@@ -102,9 +102,11 @@ CREATE TABLE IF NOT EXISTS email_campaigns (
   sent_count INTEGER DEFAULT 0,
   failed_count INTEGER DEFAULT 0,
   signature TEXT DEFAULT '',
+  layer VARCHAR(10) DEFAULT 'campaign',
   from_email TEXT DEFAULT '',
   from_name TEXT DEFAULT '',
   created_at TIMESTAMP DEFAULT NOW(),
+
   updated_at TIMESTAMP DEFAULT NOW()
 );
 

@@ -1,17 +1,8 @@
-# Task Progress - Multi-Tenant Auth Implementation
+# Task Progress: Add Layer Selector to Campaign Creation
 
-- [x] Analyze existing codebase
-- [x] Fix missing exports in workflow-rules.ts
-- [x] Set up database tables
-- [x] Update .env.local with real Neon URL
-- [ ] Add users table to database schema
-- [ ] Install NextAuth.js and dependencies
-- [ ] Create auth configuration (NextAuth route handler, providers)
-- [ ] Create login page
-- [ ] Create signup page
-- [ ] Update database schema - add user_id to leads and email_history
-- [ ] Update API routes to filter by user_id
-- [ ] Update components to pass user context
-- [ ] Add middleware to protect routes
-- [ ] Push all code to GitHub
-- [ ] Deploy on Vercel
+- [x] Add `layer` column to `email_campaigns` table in SQL schema
+- [x] Update campaign API (POST) to accept and store `layer` field
+- [x] Update campaign send route to use campaign's layer when saving to email_history
+- [x] Add Layer selector dropdown to campaign creation page
+- [x] Update clone functionality to preserve layer
+- [x] Verify TypeScript compilation

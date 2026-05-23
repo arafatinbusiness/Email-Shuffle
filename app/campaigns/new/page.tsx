@@ -59,11 +59,13 @@ function NewCampaignForm() {
   const [businessHoursEnd, setBusinessHoursEnd] = useState('18:00')
   const [selectedLeadIds, setSelectedLeadIds] = useState<number[]>([])
   const [selectAll, setSelectAll] = useState(false)
+  const [campaignLayer, setCampaignLayer] = useState('campaign')
   const [campaignSignature, setCampaignSignature] = useState('')
   const [mailboxSignature, setMailboxSignature] = useState('')
   const [fromEmail, setFromEmail] = useState('')
   const [fromName, setFromName] = useState('')
   const [isCreating, setIsCreating] = useState(false)
+
 
   // Templates
   const [templates, setTemplates] = useState<{ id: number; name: string; subject: string; body: string; category: string }[]>([])
@@ -226,9 +228,11 @@ function NewCampaignForm() {
         gap_minutes: gapSeconds,
         lead_ids: selectedLeadIds,
         signature: campaignSignature,
+        layer: campaignLayer,
         from_email: fromEmail || undefined,
         from_name: fromName || undefined,
       }
+
 
 
       if (sendType === 'scheduled') {
@@ -300,8 +304,9 @@ function NewCampaignForm() {
       {/* Form */}
       <div className="max-w-7xl mx-auto px-4 py-6">
         <div className="space-y-6">
-          {/* Top row: Campaign Name + Subject + Send From + Display Name */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          {/* Top row: Campaign Name + Subject + Layer + Send From + Display Name */}
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+
             <div className="space-y-1.5">
               <Label>Campaign Name</Label>
               <Input
@@ -373,7 +378,24 @@ function NewCampaignForm() {
               </div>
             </div>
             <div className="space-y-1.5">
+              <Label>Outreach Layer</Label>
+              <select
+                className="flex h-10 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                value={campaignLayer}
+                onChange={(e) => setCampaignLayer(e.target.value)}
+              >
+                <option value="campaign">None (General Campaign)</option>
+                <option value="L1">L1 - First Contact</option>
+                <option value="L2">L2 - Follow Up</option>
+                <option value="L3">L3 - Second Follow Up</option>
+                <option value="L4">L4 - Third Follow Up</option>
+                <option value="L5+">L5+ - Extended Follow Up</option>
+              </select>
+              <p className="text-[10px] text-muted-foreground">Tags sent emails under this layer in lead history</p>
+            </div>
+            <div className="space-y-1.5">
               <Label>Send From</Label>
+
               <select
                 className="flex h-10 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                 value={fromEmail}

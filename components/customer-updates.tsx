@@ -54,8 +54,10 @@ export function CustomerUpdates({ customers, onSelectCustomer, onEditCustomer, o
       const res = await fetch(`/api/leads/${leadId}/emails`)
       if (res.ok) {
         const data = await res.json()
-        setEmailHistory(data)
+        // API now returns { history: [...], messages: [...] }
+        setEmailHistory(data.history || data || [])
       }
+
     } catch {
       // Silently fail
     } finally {

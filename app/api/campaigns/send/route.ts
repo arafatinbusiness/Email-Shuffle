@@ -122,11 +122,13 @@ export async function POST(request: Request) {
             'synced'
           )
 
-          // Save to email_history for lead-level tracking with layer info
+          // Save to email_history for lead-level tracking with campaign's layer
+          const emailLayer = campaign.layer || 'campaign'
           await sql`
             INSERT INTO email_history (lead_id, user_id, layer, subject, body)
-            VALUES (${recipient.lead_id}, ${userId}, 'campaign', ${personalizedSubject}, ${bodyWithSignature})
+            VALUES (${recipient.lead_id}, ${userId}, ${emailLayer}, ${personalizedSubject}, ${bodyWithSignature})
           `
+
 
           // Update lead's last_email_sent
           await sql`
@@ -453,11 +455,13 @@ async function processScheduledCampaign(campaignId: number, userId: number) {
           'synced'
         )
 
-        // Save to email_history for lead-level tracking
+        // Save to email_history for lead-level tracking with campaign's layer
+        const emailLayer = campaign.layer || 'campaign'
         await retrySql(() => sql`
           INSERT INTO email_history (lead_id, user_id, layer, subject, body)
-          VALUES (${recipient.lead_id}, ${userId}, 'campaign', ${personalizedSubject}, ${bodyWithSignature})
+          VALUES (${recipient.lead_id}, ${userId}, ${emailLayer}, ${personalizedSubject}, ${bodyWithSignature})
         `)
+
 
         await retrySql(() => sql`
           UPDATE leads SET last_email_sent = NOW(), status = CASE WHEN status = 'cold' THEN 'contacted' ELSE status END

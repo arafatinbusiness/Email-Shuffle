@@ -38,7 +38,7 @@ export async function POST(request: Request) {
         scheduled_at, gap_minutes, gap_min_max,
         business_hours_only, daily_cap,
         business_hours_start, business_hours_end,
-        total_recipients, signature, from_email, from_name
+        total_recipients, signature, layer, from_email, from_name
       ) VALUES (
         ${userId}, ${newName}, ${original.subject}, ${original.body},
         ${original.send_type}, 'draft',
@@ -46,10 +46,12 @@ export async function POST(request: Request) {
         ${original.business_hours_only}, ${original.daily_cap},
         ${original.business_hours_start}, ${original.business_hours_end},
         ${original.total_recipients}, ${original.signature || null},
-        ${original.from_email || null}, ${original.from_name || null}
+        ${original.layer || 'campaign'}, ${original.from_email || null},
+        ${original.from_name || null}
       )
       RETURNING *
     `
+
 
     const newCampaignId = newCampaign[0].id
 
