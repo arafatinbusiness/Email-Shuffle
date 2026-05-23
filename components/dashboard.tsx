@@ -21,6 +21,8 @@ import { TemplateManager } from './template-manager'
 import { EmailComposer } from './email-composer'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+
 import {
   Select,
   SelectContent,
@@ -516,21 +518,37 @@ export function Dashboard() {
                     <SelectItem value="L5+">L5+</SelectItem>
                   </SelectContent>
                 </Select>
-                <Select value={groupFilter} onValueChange={(v) => setGroupFilter(v)}>
-                  <SelectTrigger className="w-[150px]">
-                    <FolderOpen className="h-4 w-4 mr-1" />
-                    <SelectValue placeholder="Group" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">📁 All Groups</SelectItem>
-                    <SelectItem value="null">📂 Ungrouped</SelectItem>
-                    {groups.map((g) => (
-                      <SelectItem key={g.id} value={g.id.toString()}>
-                        📁 {g.name} ({g.lead_count})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <div className="flex gap-1">
+                  <Select value={groupFilter} onValueChange={(v) => setGroupFilter(v)}>
+                    <SelectTrigger className="w-[150px]">
+                      <FolderOpen className="h-4 w-4 mr-1" />
+                      <SelectValue placeholder="Group" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">📁 All Groups</SelectItem>
+                      <SelectItem value="null">📂 Ungrouped</SelectItem>
+                      {groups.map((g) => (
+                        <SelectItem key={g.id} value={g.id.toString()}>
+                          📁 {g.name} ({g.lead_count})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="h-10 w-10 shrink-0"
+                    onClick={() => {
+                      setEditingGroup(null)
+                      setGroupNameInput('')
+                      setIsGroupDialogOpen(true)
+                    }}
+                    title="Manage Groups"
+                  >
+                    <FolderPlus className="h-4 w-4" />
+                  </Button>
+                </div>
+
               </div>
 
             </div>
@@ -615,6 +633,134 @@ export function Dashboard() {
         initialTemplate={initialTemplate}
       />
 
+      {/* Group Management Dialog */}
+      <Dialog open={isGroupDialogOpen} onOpenChange={setIsGroupDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{editingGroup ? 'Edit Group' : 'Create New Group'}</DialogTitle>
+            <DialogDescription>
+              {editingGroup 
+                ? 'Rename this group or delete it.' 
+                : 'Create a new group to organize your leads.'}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="groupName">Group Name</Label>
+              <Input
+                id="groupName"
+                value={groupNameInput}
+                onChange={(e) => setGroupNameInput(e.target.value)}
+                placeholder="e.g., Q1 Campaign, VIP Clients..."
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    document.getElementById('save-group-btn')?.click()
+                  }
+                }}
+              />
+            </div>
+
+            {/* Existing groups list for management */}
+            {groups.length > 0 && (
+              <div className="border rounded-md divide-y max-h-48 overflow-y-auto">
+                {groups.map((g) => (
+                  <div key={g.id} className="flex items-center justify-between px-3 py-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="text-sm truncate">📁 {g.name}</span>
+                      <span className="text-xs text-muted-foreground shrink-0">({g.lead_count})</span>
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7"
+                        onClick={() => {
+                          setEditingGroup({ id: g.id, name: g.name })
+                          setGroupNameInput(g.name)
+                        }}
+                        title="Rename"
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 text-destructive hover:text-destructive"
+                        onClick={async () => {
+                          if (!confirm(`Delete group "${g.name}"? Leads in this group will become ungrouped.`)) return
+                          try {
+                            const res = await fetch(`/api/lead-groups?id=${g.id}`, { method: 'DELETE' })
+                            if (!res.ok) throw new Error()
+                            toast.success(`Group "${g.name}" deleted`)
+                            await loadGroups()
+                            await mutate('/api/leads')
+                          } catch {
+                            toast.error('Failed to delete group')
+                          }
+                        }}
+                        title="Delete"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setIsGroupDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              id="save-group-btn"
+              disabled={!groupNameInput.trim() || isSavingGroup}
+              onClick={async () => {
+                if (!groupNameInput.trim()) return
+                setIsSavingGroup(true)
+                try {
+                  if (editingGroup) {
+                    const res = await fetch('/api/lead-groups', {
+                      method: 'PUT',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ id: editingGroup.id, name: groupNameInput.trim() }),
+                    })
+                    if (!res.ok) {
+                      const err = await res.json()
+                      throw new Error(err.error || 'Failed to update group')
+                    }
+                    toast.success(`Group renamed to "${groupNameInput.trim()}"`)
+                  } else {
+                    const res = await fetch('/api/lead-groups', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ name: groupNameInput.trim() }),
+                    })
+                    if (!res.ok) {
+                      const err = await res.json()
+                      throw new Error(err.error || 'Failed to create group')
+                    }
+                    toast.success(`Group "${groupNameInput.trim()}" created`)
+                  }
+                  setGroupNameInput('')
+                  setEditingGroup(null)
+                  await loadGroups()
+                  setIsGroupDialogOpen(false)
+                } catch (error: any) {
+                  toast.error(error.message)
+                } finally {
+                  setIsSavingGroup(false)
+                }
+              }}
+            >
+              {isSavingGroup && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              {editingGroup ? 'Rename' : 'Create Group'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
     </div>
   )
 }
+
