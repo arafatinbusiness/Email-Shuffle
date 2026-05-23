@@ -60,20 +60,27 @@ export async function sendEmail(
   const plainText = body
     .replace(/<[^>]*>/g, '')
     .replace(/&nbsp;/g, ' ')
-    .replace(/&/g, '&')
-    .replace(/</g, '<')
-    .replace(/>/g, '>')
-    .replace(/"/g, '"')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
     .replace(/&#39;/g, "'")
+    .replace(/<br\s*\/?>/gi, '\n')
     .replace(/\n{3,}/g, '\n\n')
     .trim()
+
+  // Ensure body is wrapped in proper HTML if it contains HTML tags
+  let htmlBody = body
+  if (/<[a-z][\s\S]*>/i.test(body) && !/^<!DOCTYPE/i.test(body) && !/^<html/i.test(body)) {
+    htmlBody = `<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body>${body}</body></html>`
+  }
 
   const info = await transporter.sendMail({
     from: `"${fromName}" <${fromAddress}>`,
     to,
     subject,
     text: plainText,
-    html: body,
+    html: htmlBody,
     headers,
   })
 
