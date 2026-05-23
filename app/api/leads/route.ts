@@ -68,9 +68,9 @@ export async function GET(request: Request) {
     const leads = await query
     return NextResponse.json(leads)
   } catch (error: any) {
-    // If the error is about missing image_link column, retry without it
-    if (error?.code === '42703' && String(error?.message || '').includes('image_link')) {
-      console.warn('image_link column not found in DB, retrying GET without it')
+    // If the error is about a missing column (42703), retry with a safe column list
+    if (error?.code === '42703') {
+      console.warn('Column not found in DB, retrying GET with safe column list:', error?.message)
       try {
         const sql = getDb()
         const userId = parseInt(session.user.id)
@@ -83,10 +83,10 @@ export async function GET(request: Request) {
         let query = sql`
           SELECT l.id, l.user_id, l.first_name, l.last_name, l.email, l.company_name, l.website,
                  l.group_id, l.status, l.current_layer, l.priority, l.intent, l.lead_type,
-                 l.positive_points, l.improvements, l.video_link,
+                 l.positive_points, l.improvements,
                  l.fb_ads_notes, l.pixel_status, l.custom_notes,
                  l.last_email_sent, l.next_follow_up, l.created_at, l.updated_at,
-                 l.import_batch_id, l.current_website_updates,
+                 l.import_batch_id,
                  lg.name as group_name
           FROM leads l
           LEFT JOIN lead_groups lg ON lg.id = l.group_id
@@ -144,6 +144,7 @@ export async function GET(request: Request) {
     console.error('Failed to fetch leads:', error)
     return NextResponse.json({ error: 'Failed to fetch leads' }, { status: 500 })
   }
+
 
 }
 
