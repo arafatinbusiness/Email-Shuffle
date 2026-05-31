@@ -1,4 +1,4 @@
-import { Lead, LeadStatus, LeadLayer, LeadPriority, LeadIntent, LeadType } from './types'
+import { Lead, LeadLayer, LeadPriority, LeadIntent, LeadType } from './types'
 import * as XLSX from 'xlsx'
 
 // Export leads to CSV format (Excel compatible)
@@ -10,6 +10,7 @@ export function exportToCSV(leads: Lead[]): string {
     'Company',
     'Website',
     'Status',
+    'Pipeline Stage',
     'Current Layer',
     'Type',
     'Priority',
@@ -62,6 +63,7 @@ export function exportToCSV(leads: Lead[]): string {
       lead.company_name || '',
       lead.website || '',
       lead.status,
+      lead.pipeline_stage,
       lead.current_layer,
       lead.lead_type || 'lead',
       lead.priority || '',
@@ -81,7 +83,6 @@ export function exportToCSV(leads: Lead[]): string {
       lead.image_link || '',
     ]
   })
-
 
 
 
@@ -142,7 +143,12 @@ export function parseCSV(content: string): Partial<Lead>[] {
           lead.website = value || null
           break
         case 'status':
-          if (isValidStatus(value)) lead.status = value
+          lead.status = value
+          break
+        case 'pipeline_stage':
+        case 'pipeline stage':
+        case 'pipeline':
+          if (isValidPipelineStage(value)) lead.pipeline_stage = value as any
           break
         case 'current_layer':
         case 'layer':
@@ -298,7 +304,12 @@ export function parseXLSX(data: ArrayBuffer): Partial<Lead>[] {
           lead.website = strValue || null
           break
         case 'status':
-          if (isValidStatus(strValue)) lead.status = strValue
+          lead.status = strValue
+          break
+        case 'pipeline_stage':
+        case 'pipeline stage':
+        case 'pipeline':
+          if (isValidPipelineStage(strValue)) lead.pipeline_stage = strValue as any
           break
         case 'current_layer':
         case 'layer':
@@ -465,9 +476,7 @@ function splitIntoParts(text: string, count: number): string[] {
   return parts
 }
 
-function isValidStatus(value: string): value is LeadStatus {
-
-
+function isValidPipelineStage(value: string): boolean {
   return ['cold', 'contacted', 'replied', 'converted', 'dead'].includes(value.toLowerCase())
 }
 

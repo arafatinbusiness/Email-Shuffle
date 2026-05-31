@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Lead, LeadLayer, STATUS_CONFIG, LAYER_DESCRIPTIONS, LEAD_TYPE_CONFIG } from '@/lib/types'
+import { Lead, LeadLayer, PIPELINE_STAGE_CONFIG, LAYER_DESCRIPTIONS, LEAD_TYPE_CONFIG } from '@/lib/types'
 import { EmailGenerator } from './email-generator'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -94,7 +94,7 @@ export function LeadDetail({ lead, open, onOpenChange, onEdit, onUpdate, initial
 
   if (!lead) return null
 
-  const statusConfig = STATUS_CONFIG[lead.status]
+  const stageConfig = PIPELINE_STAGE_CONFIG[lead.pipeline_stage]
   const layerInfo = LAYER_DESCRIPTIONS[lead.current_layer]
 
   const handleLayerChange = async (layer: LeadLayer) => {
@@ -178,8 +178,8 @@ export function LeadDetail({ lead, open, onOpenChange, onEdit, onUpdate, initial
                 </Button>
               </SheetTitle>
               <div className="flex items-center gap-2 mt-2">
-                <Badge className={`${statusConfig.bgColor} ${statusConfig.color} border-0`}>
-                  {statusConfig.label}
+                <Badge className={`${stageConfig.bgColor} ${stageConfig.color} border-0`}>
+                  {stageConfig.label}
                 </Badge>
                 <Badge variant="outline" className="border-primary/30 text-primary">
                   {lead.current_layer} - {layerInfo.name}

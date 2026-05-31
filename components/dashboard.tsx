@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from 'react'
 
 import { useSession, signOut } from 'next-auth/react'
 import useSWR, { mutate } from 'swr'
-import { Lead, LeadStatus, LeadLayer, LAYER_DESCRIPTIONS } from '@/lib/types'
+import { Lead, LeadLayer, PipelineStage, LAYER_DESCRIPTIONS } from '@/lib/types'
 
 import { calculateNextFollowUp, NEXT_LAYER } from '@/lib/workflow-rules'
 import { exportToCSV, parseCSV, parseXLSX, downloadCSV } from '@/lib/excel-utils'
@@ -90,7 +90,7 @@ export function Dashboard() {
   const [initialTemplate, setInitialTemplate] = useState<{ subject: string; body: string } | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
 
-  const [statusFilter, setStatusFilter] = useState<LeadStatus | 'all'>('all')
+  const [statusFilter, setStatusFilter] = useState<PipelineStage | 'all'>('all')
   const [layerFilter, setLayerFilter] = useState<LeadLayer | 'all'>('all')
   const [groupFilter, setGroupFilter] = useState<string>('all')
   const [activeTab, setActiveTab] = useState('actions')
@@ -534,7 +534,7 @@ export function Dashboard() {
                 />
               </div>
               <div className="flex gap-2 flex-wrap">
-                <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as LeadStatus | 'all')}>
+                <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as PipelineStage | 'all')}>
                   <SelectTrigger className="w-[130px]">
                     <Filter className="h-4 w-4 mr-1" />
                     <SelectValue placeholder="Status" />

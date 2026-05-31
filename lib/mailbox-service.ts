@@ -31,7 +31,8 @@ export async function sendEmail(
   inReplyTo?: string,
   references?: string,
   fromOverride?: string,
-  fromNameOverride?: string
+  fromNameOverride?: string,
+  plainTextOnly?: boolean
 ): Promise<{ messageId: string; accepted: string[] }> {
   const transporter = nodemailer.createTransport({
     host: config.smtp_host,
@@ -57,32 +58,51 @@ export async function sendEmail(
   const fromName = fromNameOverride || fromAddress.split('@')[0]
 
   // Strip HTML tags for plain text version
-  const plainText = body
-    .replace(/<[^>]*>/g, '')
-    .replace(/&nbsp;/g, ' ')
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
+  // First decode HTML entities, then strip remaining tags
+  let plainText = body
+    // Replace block-level closing tags with newlines
+    .replace(/<\/p>/gi, '\n')
+    .replace(/<\/div>/gi, '\n')
+    .replace(/<\/li>/gi, '\n')
+    .replace(/<\/h[1-6]>/gi, '\n')
     .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<hr\s*\/?>/gi, '\n---\n')
+    // Strip all remaining HTML tags
+    .replace(/<[^>]*>/g, '')
+    // Decode HTML entities
+    .replace(/\x26amp;/g, '\x26')
+    .replace(/\x26lt;/g, '\x3C')
+    .replace(/\x26gt;/g, '\x3E')
+    .replace(/\x26quot;/g, '\x22')
+    .replace(/\x26#39;/g, "'")
+    .replace(/\x26#x27;/g, "'")
+    .replace(/\x26#x2F;/g, '/')
+    .replace(/\x26#x60;/g, '`')
+    .replace(/\x26#x3D;/g, '=')
+    .replace(/\x26nbsp;/g, ' ')
+    // Clean up excessive whitespace
     .replace(/\n{3,}/g, '\n\n')
     .trim()
 
-  // Ensure body is wrapped in proper HTML if it contains HTML tags
-  let htmlBody = body
-  if (/<[a-z][\s\S]*>/i.test(body) && !/^<!DOCTYPE/i.test(body) && !/^<html/i.test(body)) {
-    htmlBody = `<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body>${body}</body></html>`
-  }
-
-  const info = await transporter.sendMail({
+  const mailOptions: nodemailer.SendMailOptions = {
     from: `"${fromName}" <${fromAddress}>`,
     to,
     subject,
     text: plainText,
-    html: htmlBody,
     headers,
-  })
+  }
+
+  // Only send HTML version if not plainTextOnly mode
+  if (!plainTextOnly) {
+    // Ensure body is wrapped in proper HTML if it contains HTML tags
+    let htmlBody = body
+    if (/<[a-z][\s\S]*>/i.test(body) && !/^<!DOCTYPE/i.test(body) && !/^<html/i.test(body)) {
+      htmlBody = `<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body>${body}</body></html>`
+    }
+    mailOptions.html = htmlBody
+  }
+
+  const info = await transporter.sendMail(mailOptions)
 
   const messageId = info.messageId || `<${Date.now()}-${Math.random().toString(36).substr(2, 9)}@${config.email.split('@')[1] || 'local'}>`
 
@@ -101,7 +121,7 @@ export async function sendEmail(
     await client.connect()
 
     // Build the raw email to append to Sent folder
-    const rawEmail = buildSentEmail(fromAddress, to, subject, body, messageId, inReplyTo, references)
+    const rawEmail = buildSentEmail(fromAddress, to, subject, plainText, messageId, inReplyTo, references)
 
     // First, list all folders to find the Sent folder
     const mailboxes = await client.list()

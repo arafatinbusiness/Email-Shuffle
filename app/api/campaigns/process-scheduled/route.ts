@@ -116,7 +116,8 @@ export async function POST() {
               undefined,
               undefined,
               senderEmail,
-              campaign.from_name || undefined
+              campaign.from_name || undefined,
+              true // plainTextOnly - send as plain text for campaign emails
             )
 
             // Create thread

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Lead, LeadStatus, LeadLayer, LeadPriority, LeadIntent, LeadType, PRIORITY_CONFIG, INTENT_LABELS, LEAD_TYPE_CONFIG } from '@/lib/types'
+import { Lead, PipelineStage, LeadLayer, LeadPriority, LeadIntent, LeadType, PRIORITY_CONFIG, INTENT_LABELS, LEAD_TYPE_CONFIG } from '@/lib/types'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -55,7 +55,8 @@ export function LeadForm({ open, onOpenChange, lead, onSubmit, defaultGroupId }:
       company_name: lead?.company_name || '',
       website: lead?.website || '',
       group_id: lead?.group_id ?? defaultGroupId ?? null,
-      status: lead?.status || 'cold',
+      status: lead?.status || '',
+      pipeline_stage: lead?.pipeline_stage || 'cold',
       current_layer: lead?.current_layer || 'L1',
       positive_points: lead?.positive_points || '',
       improvements: lead?.improvements || '',
@@ -202,12 +203,22 @@ export function LeadForm({ open, onOpenChange, lead, onSubmit, defaultGroupId }:
             </Select>
           </div>
 
+          <div className="space-y-2">
+            <Label htmlFor="status">Status (free text - e.g. CEO, Owner, etc.)</Label>
+            <Input
+              id="status"
+              placeholder="e.g. CEO, Owner, Decision Maker..."
+              value={formData.status || ''}
+              onChange={(e) => updateField('status', e.target.value)}
+            />
+          </div>
+
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="status">Status</Label>
+              <Label htmlFor="pipeline_stage">Pipeline Stage</Label>
               <Select
-                value={formData.status}
-                onValueChange={(value: LeadStatus) => updateField('status', value)}
+                value={formData.pipeline_stage || 'cold'}
+                onValueChange={(value: PipelineStage) => updateField('pipeline_stage', value)}
               >
                 <SelectTrigger>
                   <SelectValue />

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Lead, LAYER_DESCRIPTIONS, STATUS_CONFIG, PRIORITY_CONFIG, INTENT_LABELS, LEAD_TYPE_CONFIG } from '@/lib/types'
+import { Lead, LAYER_DESCRIPTIONS, PIPELINE_STAGE_CONFIG, PRIORITY_CONFIG, INTENT_LABELS, LEAD_TYPE_CONFIG } from '@/lib/types'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -39,7 +39,7 @@ export function LeadCard({ lead, onSelect, onDelete, onUseTemplate, selected, on
   const [templates, setTemplates] = useState<Template[]>([])
   const [loadingTemplates, setLoadingTemplates] = useState(false)
   const [showTemplates, setShowTemplates] = useState(false)
-  const statusConfig = STATUS_CONFIG[lead.status]
+  const stageConfig = PIPELINE_STAGE_CONFIG[lead.pipeline_stage]
   const layerInfo = LAYER_DESCRIPTIONS[lead.current_layer]
 
   const getUrgencyLabel = () => {
@@ -139,8 +139,8 @@ export function LeadCard({ lead, onSelect, onDelete, onUseTemplate, selected, on
                 {lead.image_link && (
                   <Image className="h-3 w-3 text-green-400" />
                 )}
-                <Badge className={`${statusConfig.bgColor} ${statusConfig.color} border-0`}>
-                  {statusConfig.label}
+                <Badge className={`${stageConfig.bgColor} ${stageConfig.color} border-0`}>
+                  {stageConfig.label}
                 </Badge>
                 <Badge variant="outline" className="border-primary/30 text-primary">
                   {lead.current_layer} - {layerInfo.name}

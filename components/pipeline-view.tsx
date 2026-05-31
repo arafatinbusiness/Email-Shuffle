@@ -1,9 +1,9 @@
 'use client'
 
-import { Lead, STATUS_CONFIG, LAYER_DESCRIPTIONS, PRIORITY_CONFIG, INTENT_LABELS } from '@/lib/types'
+import { Lead, PIPELINE_STAGE_CONFIG, LAYER_DESCRIPTIONS, PRIORITY_CONFIG, INTENT_LABELS } from '@/lib/types'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Flag, Target, Mail, Calendar } from 'lucide-react'
+import { Flag, Target, Calendar } from 'lucide-react'
 import { format } from 'date-fns'
 
 interface PipelineViewProps {
@@ -13,7 +13,7 @@ interface PipelineViewProps {
 export function PipelineView({ leads }: PipelineViewProps) {
   const stages = ['cold', 'contacted', 'replied', 'converted', 'dead'] as const
 
-  const getLeadsByStatus = (status: string) => leads.filter(l => l.status === status)
+  const getLeadsByStage = (stage: string) => leads.filter(l => l.pipeline_stage === stage)
 
   return (
     <div className="space-y-6">
@@ -25,12 +25,12 @@ export function PipelineView({ leads }: PipelineViewProps) {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
-        {stages.map((status) => {
-          const stageLeads = getLeadsByStatus(status)
-          const config = STATUS_CONFIG[status]
+        {stages.map((stage) => {
+          const stageLeads = getLeadsByStage(stage)
+          const config = PIPELINE_STAGE_CONFIG[stage]
 
           return (
-            <Card key={status} className="border-t-4" style={{ borderTopColor: `var(--${config.color.replace('text-', '')})` }}>
+            <Card key={stage} className="border-t-4" style={{ borderTopColor: `var(--${config.color.replace('text-', '')})` }}>
               <CardHeader className="pb-2">
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-sm flex items-center gap-2">

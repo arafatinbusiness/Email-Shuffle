@@ -1,4 +1,5 @@
-export type LeadStatus = 'cold' | 'contacted' | 'replied' | 'converted' | 'dead'
+export type LeadStatus = string
+export type PipelineStage = 'cold' | 'contacted' | 'replied' | 'converted' | 'dead'
 export type LeadLayer = 'L1' | 'L2' | 'L3' | 'L4' | 'L5+'
 export type LeadPriority = 'high' | 'medium' | 'low'
 export type LeadIntent = 'cold-outreach' | 'follow-up' | 'closing' | 're-engagement'
@@ -14,6 +15,7 @@ export interface Lead {
   group_id: number | null
   group_name: string | null
   status: LeadStatus
+  pipeline_stage: PipelineStage
   current_layer: LeadLayer
   priority: LeadPriority | null
   intent: LeadIntent | null
@@ -81,7 +83,7 @@ export const LAYER_DESCRIPTIONS: Record<LeadLayer, { name: string; description: 
   }
 }
 
-export const STATUS_CONFIG: Record<LeadStatus, { label: string; color: string; bgColor: string }> = {
+export const PIPELINE_STAGE_CONFIG: Record<PipelineStage, { label: string; color: string; bgColor: string }> = {
   'cold': { label: 'Cold', color: 'text-blue-400', bgColor: 'bg-blue-500/10' },
   'contacted': { label: 'Contacted', color: 'text-amber-400', bgColor: 'bg-amber-500/10' },
   'replied': { label: 'Replied', color: 'text-emerald-400', bgColor: 'bg-emerald-500/10' },

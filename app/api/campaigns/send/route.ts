@@ -87,7 +87,8 @@ export async function POST(request: Request) {
             undefined,
             undefined,
             senderEmail,
-            campaign.from_name || undefined
+            campaign.from_name || undefined,
+            true // plainTextOnly - send as plain text for campaign emails
           )
 
           // Update recipient status
@@ -465,7 +466,8 @@ async function processScheduledCampaign(campaignId: number, userId: number) {
           undefined,
           undefined,
           senderEmail,
-          campaign.from_name || undefined
+          campaign.from_name || undefined,
+          true // plainTextOnly - send as plain text for campaign emails
         )
 
         // Create a thread for this campaign email

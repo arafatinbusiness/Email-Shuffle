@@ -12,11 +12,11 @@ interface StatsCardsProps {
 export function StatsCards({ leads }: StatsCardsProps) {
   const stats = {
     total: leads.length,
-    cold: leads.filter(l => l.status === 'cold').length,
-    contacted: leads.filter(l => l.status === 'contacted').length,
-    replied: leads.filter(l => l.status === 'replied').length,
-    converted: leads.filter(l => l.status === 'converted').length,
-    dead: leads.filter(l => l.status === 'dead').length,
+    cold: leads.filter(l => l.pipeline_stage === 'cold').length,
+    contacted: leads.filter(l => l.pipeline_stage === 'contacted').length,
+    replied: leads.filter(l => l.pipeline_stage === 'replied').length,
+    converted: leads.filter(l => l.pipeline_stage === 'converted').length,
+    dead: leads.filter(l => l.pipeline_stage === 'dead').length,
     overdueFollowups: leads.filter(l => 
       l.next_follow_up && isPast(new Date(l.next_follow_up)) && !isToday(new Date(l.next_follow_up))
     ).length,
