@@ -185,9 +185,9 @@ export async function POST(request: Request) {
       upsert = false,
     } = body
 
-    // Validate status - only allow valid pipeline stage values or empty string
-    const VALID_STATUSES = ['cold', 'contacted', 'replied', 'converted', 'dead', '']
-    let status = VALID_STATUSES.includes(rawStatus) ? rawStatus : ''
+    // Validate status - only allow valid pipeline stage values
+    const VALID_STATUSES = ['cold', 'contacted', 'replied', 'converted', 'dead']
+    let status = VALID_STATUSES.includes(rawStatus) ? rawStatus : 'cold'
 
     // Try with all columns first, fall back to without if column doesn't exist
     const insertWithAll = async () => {
