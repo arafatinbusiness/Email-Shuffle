@@ -1,8 +1,6 @@
-# Task Progress: Add Layer Selector to Campaign Creation
+# Task Progress: Row Range Selection for Import
 
-- [x] Add `layer` column to `email_campaigns` table in SQL schema
-- [x] Update campaign API (POST) to accept and store `layer` field
-- [x] Update campaign send route to use campaign's layer when saving to email_history
-- [x] Add Layer selector dropdown to campaign creation page
-- [x] Update clone functionality to preserve layer
-- [x] Verify TypeScript compilation
+- [x] Analyze current import code in dashboard.tsx and excel-utils.ts
+- [x] Modify parseXLSX and parseCSV to accept row range parameters
+- [x] Add import dialog with row range selection in dashboard.tsx
+- [x] Wire up the dialog to use row range when importing

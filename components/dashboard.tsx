@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 
 import { useSession, signOut } from 'next-auth/react'
 import useSWR, { mutate } from 'swr'
@@ -95,7 +95,6 @@ export function Dashboard() {
   const [groupFilter, setGroupFilter] = useState<string>('all')
   const [activeTab, setActiveTab] = useState('actions')
   const [activeMailboxView, setActiveMailboxView] = useState<'inbox' | 'settings'>('inbox')
-  const fileInputRef = useRef<HTMLInputElement>(null)
 
   // Group management state
   const [groups, setGroups] = useState<{ id: number; name: string; lead_count: number }[]>([])
@@ -109,6 +108,13 @@ export function Dashboard() {
   const [exportGroupId, setExportGroupId] = useState<string>('all')
   const [isExporting, setIsExporting] = useState(false)
   const [exportGroupSearch, setExportGroupSearch] = useState('')
+
+  // Import dialog state
+  const [isImportDialogOpen, setIsImportDialogOpen] = useState(false)
+  const [importFile, setImportFile] = useState<File | null>(null)
+  const [importStartRow, setImportStartRow] = useState<string>('')
+  const [importEndRow, setImportEndRow] = useState<string>('')
+  const [isImporting, setIsImporting] = useState(false)
 
   // Bulk selection state
   const [selectedLeadIds, setSelectedLeadIds] = useState<number[]>([])
@@ -315,12 +321,52 @@ export function Dashboard() {
     }
   }
 
-  // Excel Import (supports .csv, .xlsx, .xls) - uses upsert to overwrite existing leads
-  const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
+  // Open import dialog with file selection
+  const handleImportClick = () => {
+    setImportFile(null)
+    setImportStartRow('')
+    setImportEndRow('')
+    setIsImportDialogOpen(true)
+  }
 
-    const isXLSX = file.name.endsWith('.xlsx') || file.name.endsWith('.xls')
+  // Handle file selection in the import dialog
+  const handleImportFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      setImportFile(file)
+    }
+  }
+
+  // Execute the import with optional row range
+  const handleImportConfirm = async () => {
+    if (!importFile) {
+      toast.error('Please select a file to import.')
+      return
+    }
+
+    setIsImporting(true)
+    const isXLSX = importFile.name.endsWith('.xlsx') || importFile.name.endsWith('.xls')
+
+    // Parse row range (1-based, where row 1 = header)
+    const startRow = importStartRow ? parseInt(importStartRow) : undefined
+    const endRow = importEndRow ? parseInt(importEndRow) : undefined
+
+    // Validate row range
+    if (startRow !== undefined && (isNaN(startRow) || startRow < 1)) {
+      toast.error('Start row must be a positive number (row 1 = header).')
+      setIsImporting(false)
+      return
+    }
+    if (endRow !== undefined && (isNaN(endRow) || endRow < 1)) {
+      toast.error('End row must be a positive number (row 1 = header).')
+      setIsImporting(false)
+      return
+    }
+    if (startRow !== undefined && endRow !== undefined && startRow > endRow) {
+      toast.error('Start row must be less than or equal to end row.')
+      setIsImporting(false)
+      return
+    }
 
     const processLeads = async (parsedLeads: Partial<Lead>[]) => {
       if (parsedLeads.length === 0) {
@@ -356,33 +402,46 @@ export function Dashboard() {
 
       await mutate('/api/leads')
       const typeInfo = customerCount > 0 ? ` (${customerCount} customers, ${leadCount} leads)` : ''
-      toast.success(`Imported/Updated ${successCount} leads${typeInfo}${errorCount > 0 ? ` (${errorCount} failed)` : ''}`)
-
+      const rangeInfo = startRow || endRow ? ` (rows ${startRow || 2}-${endRow || 'end'})` : ''
+      toast.success(`Imported/Updated ${successCount} leads${rangeInfo}${typeInfo}${errorCount > 0 ? ` (${errorCount} failed)` : ''}`)
     }
 
-    if (isXLSX) {
-      const reader = new FileReader()
-      reader.onload = async (event) => {
-        try {
-          const data = event.target?.result as ArrayBuffer
-          const parsedLeads = parseXLSX(data)
-          await processLeads(parsedLeads)
-        } catch {
-          toast.error('Failed to parse Excel file. Make sure it\'s a valid .xlsx file.')
+    try {
+      if (isXLSX) {
+        const reader = new FileReader()
+        reader.onload = async (event) => {
+          try {
+            const data = event.target?.result as ArrayBuffer
+            const parsedLeads = parseXLSX(data, startRow, endRow)
+            await processLeads(parsedLeads)
+            setIsImportDialogOpen(false)
+          } catch {
+            toast.error('Failed to parse Excel file. Make sure it\'s a valid .xlsx file.')
+          } finally {
+            setIsImporting(false)
+          }
         }
+        reader.readAsArrayBuffer(importFile)
+      } else {
+        const reader = new FileReader()
+        reader.onload = async (event) => {
+          try {
+            const content = event.target?.result as string
+            const parsedLeads = parseCSV(content, startRow, endRow)
+            await processLeads(parsedLeads)
+            setIsImportDialogOpen(false)
+          } catch {
+            toast.error('Failed to parse CSV file.')
+          } finally {
+            setIsImporting(false)
+          }
+        }
+        reader.readAsText(importFile)
       }
-      reader.readAsArrayBuffer(file)
-    } else {
-      const reader = new FileReader()
-      reader.onload = async (event) => {
-        const content = event.target?.result as string
-        const parsedLeads = parseCSV(content)
-        await processLeads(parsedLeads)
-      }
-      reader.readAsText(file)
+    } catch {
+      toast.error('Failed to read file.')
+      setIsImporting(false)
     }
-    
-    if (fileInputRef.current) fileInputRef.current.value = ''
   }
 
 
@@ -413,17 +472,10 @@ export function Dashboard() {
               <p className="text-sm text-muted-foreground">Email Outreach Workflow</p>
             </div>
             <div className="flex items-center gap-2">
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".csv,.xlsx,.xls"
-                onChange={handleImport}
-                className="hidden"
-              />
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => fileInputRef.current?.click()}
+                onClick={handleImportClick}
               >
                 <Upload className="h-4 w-4 mr-1" />
                 Import
@@ -805,6 +857,78 @@ export function Dashboard() {
         </DialogContent>
       </Dialog>
 
+
+      {/* Import Dialog */}
+      <Dialog open={isImportDialogOpen} onOpenChange={setIsImportDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Import Leads</DialogTitle>
+            <DialogDescription>
+              Select a CSV or Excel file to import leads. Optionally specify a row range to import only specific rows.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Select File</Label>
+              <Input
+                type="file"
+                accept=".csv,.xlsx,.xls"
+                onChange={handleImportFileSelect}
+                className="cursor-pointer"
+              />
+              {importFile && (
+                <p className="text-xs text-muted-foreground">
+                  Selected: {importFile.name}
+                </p>
+              )}
+            </div>
+
+            <div className="border-t pt-4">
+              <div className="flex items-center gap-2 mb-3">
+                <span className="text-sm font-medium">Row Range (Optional)</span>
+                <span className="text-xs text-muted-foreground">Leave empty to import all rows</span>
+              </div>
+              <div className="text-xs text-muted-foreground mb-3">
+                Row 1 = header row. Data starts at row 2. Example: enter "3" to "5" to import only rows 3, 4, and 5.
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label htmlFor="importStartRow" className="text-xs">From Row</Label>
+                  <Input
+                    id="importStartRow"
+                    type="number"
+                    min="1"
+                    placeholder="e.g. 3"
+                    value={importStartRow}
+                    onChange={(e) => setImportStartRow(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="importEndRow" className="text-xs">To Row</Label>
+                  <Input
+                    id="importEndRow"
+                    type="number"
+                    min="1"
+                    placeholder="e.g. 5"
+                    value={importEndRow}
+                    onChange={(e) => setImportEndRow(e.target.value)}
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setIsImportDialogOpen(false)} disabled={isImporting}>
+              Cancel
+            </Button>
+            <Button onClick={handleImportConfirm} disabled={!importFile || isImporting}>
+              {isImporting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              <Upload className="h-4 w-4 mr-2" />
+              {isImporting ? 'Importing...' : 'Import'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Bulk Group Assignment Dialog */}
       <Dialog open={isBulkGroupDialogOpen} onOpenChange={setIsBulkGroupDialogOpen}>

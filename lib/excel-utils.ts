@@ -102,14 +102,37 @@ export function exportToCSV(leads: Lead[]): string {
 }
 
 // Parse CSV content to lead data
-export function parseCSV(content: string): Partial<Lead>[] {
+// startRow and endRow are 1-based (row 1 = header row). If provided, only rows in that range are imported.
+// Example: startRow=3, endRow=5 will import data rows 3, 4, 5 (skipping header row 1 and data row 2)
+export function parseCSV(content: string, startRow?: number, endRow?: number): Partial<Lead>[] {
   const lines = content.split('\n').filter(line => line.trim())
   if (lines.length < 2) return []
 
   const headers = lines[0].split(',').map(h => h.trim().toLowerCase().replace(/\s+/g, '_'))
   const leads: Partial<Lead>[] = []
 
-  for (let i = 1; i < lines.length; i++) {
+  // Determine which data rows to process
+  // Row 1 = header, so data rows start at index 1 (line 2)
+  let dataStartIndex = 1
+  let dataEndIndex = lines.length - 1
+
+  if (startRow !== undefined || endRow !== undefined) {
+    // Convert 1-based row numbers to 0-based array indices
+    // Row 1 = header (index 0), Row 2 = first data row (index 1), etc.
+    const firstDataRow = 2 // Row 2 is the first data row
+    if (startRow !== undefined) {
+      dataStartIndex = Math.max(1, startRow - 1) // Convert 1-based to 0-based, but never go before first data row
+    }
+    if (endRow !== undefined) {
+      dataEndIndex = Math.min(lines.length - 1, endRow - 1) // Convert 1-based to 0-based
+    }
+    // Ensure start <= end
+    if (dataStartIndex > dataEndIndex) {
+      dataStartIndex = dataEndIndex
+    }
+  }
+
+  for (let i = dataStartIndex; i <= dataEndIndex; i++) {
     const values = parseCSVLine(lines[i])
     const lead: Partial<Lead> = {}
 
@@ -261,7 +284,9 @@ export function parseCSV(content: string): Partial<Lead>[] {
 
 
 // Parse XLSX file content to lead data
-export function parseXLSX(data: ArrayBuffer): Partial<Lead>[] {
+// startRow and endRow are 1-based (row 1 = header row). If provided, only rows in that range are imported.
+// Example: startRow=3, endRow=5 will import data rows 3, 4, 5 (skipping header row 1 and data row 2)
+export function parseXLSX(data: ArrayBuffer, startRow?: number, endRow?: number): Partial<Lead>[] {
   const workbook = XLSX.read(data, { type: 'array' })
   const firstSheet = workbook.Sheets[workbook.SheetNames[0]]
   const jsonData = XLSX.utils.sheet_to_json<Record<string, string>>(firstSheet, { defval: '' })
@@ -270,7 +295,29 @@ export function parseXLSX(data: ArrayBuffer): Partial<Lead>[] {
 
   const leads: Partial<Lead>[] = []
 
-  for (const row of jsonData) {
+  // Determine which data rows to process
+  // sheet_to_json returns objects starting from the first data row (row 2 in Excel, index 0 in jsonData)
+  let dataStartIndex = 0
+  let dataEndIndex = jsonData.length - 1
+
+  if (startRow !== undefined || endRow !== undefined) {
+    // Convert 1-based row numbers to 0-based jsonData indices
+    // Row 1 = header, Row 2 = first data row = jsonData[0]
+    const firstDataRow = 2
+    if (startRow !== undefined) {
+      dataStartIndex = Math.max(0, startRow - firstDataRow)
+    }
+    if (endRow !== undefined) {
+      dataEndIndex = Math.min(jsonData.length - 1, endRow - firstDataRow)
+    }
+    // Ensure start <= end
+    if (dataStartIndex > dataEndIndex) {
+      dataStartIndex = dataEndIndex
+    }
+  }
+
+  for (let i = dataStartIndex; i <= dataEndIndex; i++) {
+    const row = jsonData[i]
     const lead: Partial<Lead> = {}
 
     // Collect numbered positive_points and improvements
