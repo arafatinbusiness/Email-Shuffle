@@ -39,7 +39,7 @@ export function LeadCard({ lead, onSelect, onDelete, onUseTemplate, selected, on
   const [templates, setTemplates] = useState<Template[]>([])
   const [loadingTemplates, setLoadingTemplates] = useState(false)
   const [showTemplates, setShowTemplates] = useState(false)
-  const stageConfig = PIPELINE_STAGE_CONFIG[lead.pipeline_stage]
+  const stageConfig = PIPELINE_STAGE_CONFIG[lead.pipeline_stage] || { label: lead.pipeline_stage || 'Unknown', color: 'text-gray-400', bgColor: 'bg-gray-500/10' }
   const layerInfo = LAYER_DESCRIPTIONS[lead.current_layer]
 
   const getUrgencyLabel = () => {
